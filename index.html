@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CryptoVault - ポートフォリオ管理</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,'Helvetica Neue',sans-serif;background:#f0f2f5;min-height:100vh;font-size:13px;color:#1a2332;}
+
+/* ===== トップナビ ===== */
+.topnav{background:#fff;border-bottom:1px solid #e0e4ea;height:48px;display:flex;align-items:center;padding:0 24px;position:sticky;top:0;z-index:100;}
+.topnav-brand{font-size:15px;font-weight:600;color:#1a2332;margin-right:28px;display:flex;align-items:center;gap:7px;white-space:nowrap;}
+.brand-icon{width:24px;height:24px;background:#1a56db;border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.topnav-tabs{display:flex;height:48px;align-items:stretch;}
+.topnav-tab{display:flex;align-items:center;padding:0 16px;font-size:13px;color:#5a6478;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color 0.15s;}
+.topnav-tab:hover{color:#1a2332;background:#f8f9fc;}
+.topnav-tab.active{color:#1a56db;border-bottom-color:#1a56db;font-weight:500;}
+.topnav-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.ver-badge{font-size:11px;color:#9aa3b0;background:#f0f2f5;padding:3px 9px;border-radius:4px;}
+.api-badge{font-size:11px;padding:3px 9px;border-radius:4px;cursor:pointer;white-space:nowrap;}
+.api-badge.ok{background:#e8f5e9;color:#1b5e20;}
+.api-badge.ng{background:#fff3e0;color:#9a5c00;}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 13px;border-radius:5px;font-size:12px;font-weight:500;cursor:pointer;border:none;transition:all 0.15s;white-space:nowrap;}
+.btn-primary{background:#1a56db;color:#fff;}
+.btn-primary:hover{background:#1447b8;}
+.btn-outline{background:#fff;color:#5a6478;border:1px solid #e0e4ea;}
+.btn-outline:hover{background:#f8f9fc;border-color:#c8cdd6;}
+.btn-danger{background:#fff;color:#c0392b;border:1px solid #fcc;}
+.btn-danger:hover{background:#fff5f5;}
+.btn-sm{padding:4px 10px;font-size:11px;}
+.btn-ghost{background:none;color:#1a56db;border:1px solid #c7d9ff;background:#eff4ff;}
+.btn-ghost:hover{background:#dbeafe;}
+.btn-settings{background:none;color:#9aa3b0;border:none;padding:6px 8px;}
+.btn-settings:hover{color:#5a6478;background:#f0f2f5;border-radius:5px;}
+
+/* ===== ページ ===== */
+.page{display:none;padding:22px 24px;}
+.page.active{display:block;}
+
+/* ===== パンくず ===== */
+.breadcrumb{display:flex;align-items:center;gap:5px;font-size:12px;color:#9aa3b0;margin-bottom:18px;}
+.breadcrumb a{color:#9aa3b0;text-decoration:none;}
+.breadcrumb span{color:#1a2332;}
+
+/* ===== カード ===== */
+.card{background:#fff;border:1px solid #e0e4ea;border-radius:8px;}
+.card-header{padding:14px 18px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;justify-content:space-between;}
+.card-header-title{font-size:13px;font-weight:500;color:#1a2332;display:flex;align-items:center;gap:8px;}
+.card-body{padding:18px 20px;}
+.count-badge{background:#eff4ff;color:#1a56db;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;}
+.count-badge.gray{background:#f0f2f5;color:#5a6478;}
+
+/* ===== サマリーヘッダー ===== */
+.summary-hero{background:#fff;border:1px solid #e0e4ea;border-radius:8px;padding:20px 24px;margin-bottom:18px;display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+.summary-pnl-label{font-size:12px;color:#9aa3b0;margin-bottom:6px;}
+.summary-pnl-value{font-size:28px;font-weight:500;color:#0d9060;}
+.summary-pnl-value.neg{color:#c0392b;}
+.summary-meta{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.meta-chip{font-size:11px;background:#f0f2f5;color:#5a6478;padding:3px 10px;border-radius:4px;border:1px solid #e0e4ea;cursor:pointer;}
+.summary-actions{display:flex;gap:8px;flex-wrap:wrap;}
+
+/* ===== サブタブ ===== */
+.subtabs{display:flex;border-bottom:1px solid #e0e4ea;margin-bottom:16px;}
+.subtab{padding:10px 16px;font-size:13px;color:#9aa3b0;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s;margin-bottom:-1px;}
+.subtab:hover{color:#1a2332;}
+.subtab.active{color:#1a56db;border-bottom-color:#1a56db;font-weight:500;}
+
+/* ===== テーブル ===== */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:#f8f9fc;}
+th{padding:9px 14px;text-align:left;color:#9aa3b0;font-weight:500;font-size:11px;white-space:nowrap;border-bottom:1px solid #e8eaed;}
+td{padding:10px 14px;border-bottom:1px solid #f4f5f8;color:#1a2332;font-size:12px;white-space:nowrap;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:#fafbff;}
+.td-right{text-align:right;}
+.td-mono{font-family:'Courier New',monospace;font-size:11px;}
+.td-muted{color:#9aa3b0;}
+
+/* ===== バッジ ===== */
+.badge{display:inline-block;font-size:10px;padding:2px 8px;border-radius:3px;font-weight:500;}
+.badge-swap{background:#eff4ff;color:#1e40af;}
+.badge-send{background:#fff3e0;color:#9a5c00;}
+.badge-receive{background:#e8f5e9;color:#1b5e20;}
+.badge-chain{font-size:10px;padding:2px 7px;border-radius:3px;font-weight:500;}
+.chain-bitcoin{background:#fff3e0;color:#9a5c00;}
+.chain-polygon{background:#f3e8fd;color:#6b21a8;}
+.chain-ethereum{background:#e8eeff;color:#1e3a8a;}
+.chain-arbitrum{background:#e8f4fd;color:#0c4a6e;}
+.chain-optimism{background:#fee2e2;color:#991b1b;}
+.chain-base{background:#e8eeff;color:#1e3a8a;}
+.chain-tron{background:#fee2e2;color:#991b1b;}
+
+/* ===== アドレス表示 ===== */
+.addr-known{color:#1a56db;font-size:11px;font-weight:500;}
+.addr-unknown{color:#9aa3b0;font-family:'Courier New',monospace;font-size:10px;}
+
+/* ===== コインアイコン ===== */
+.coin-icon{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;}
+
+/* ===== フィルター行 ===== */
+.filter-row{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:10px 0 14px;}
+.filter-btn{font-size:11px;border:1px solid #e0e4ea;border-radius:5px;padding:5px 11px;color:#5a6478;cursor:pointer;background:#fff;display:flex;align-items:center;gap:4px;white-space:nowrap;}
+.filter-btn:hover{background:#f8f9fc;border-color:#c8cdd6;}
+.filter-btn select{border:none;background:none;color:#5a6478;font-size:11px;cursor:pointer;outline:none;}
+.filter-count{margin-left:auto;font-size:11px;color:#9aa3b0;}
+
+/* ===== ウォレットテーブル操作セル ===== */
+.action-cell{display:flex;gap:5px;}
+
+/* ===== 年間集計カード ===== */
+.annual-section{margin-bottom:24px;}
+.annual-year-label{font-size:13px;font-weight:500;color:#1a2332;margin-bottom:4px;}
+.annual-year-sub{font-size:11px;color:#9aa3b0;margin-bottom:12px;}
+.annual-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:16px;}
+.annual-card{background:#f8f9fc;border:1px solid #e8eaed;border-radius:6px;padding:12px 14px;}
+.annual-card-label{font-size:10px;color:#9aa3b0;margin-bottom:5px;}
+.annual-card-value{font-size:17px;font-weight:500;color:#1a2332;}
+.annual-card-value.pos{color:#0d9060;}
+.annual-card-value.neg{color:#c0392b;}
+
+/* ===== モーダル ===== */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:500;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:#fff;border-radius:10px;padding:26px;max-width:520px;width:92%;max-height:85vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.18);}
+.modal-title{font-size:15px;font-weight:600;color:#1a2332;margin-bottom:18px;}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;flex-wrap:wrap;}
+.modal-footer .btn{min-width:90px;}
+
+/* ===== フォーム ===== */
+.form-section{background:#f8f9fc;border:1px solid #e0e4ea;border-radius:8px;padding:18px;margin-bottom:14px;display:none;}
+.form-section.open{display:block;}
+.form-section-title{font-size:12px;font-weight:600;color:#5a6478;margin-bottom:12px;}
+.form-row{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:center;margin-bottom:9px;}
+.form-row label{font-size:12px;color:#5a6478;font-weight:500;}
+.form-row input,.form-row select{padding:7px 10px;border:1px solid #dde1e8;border-radius:5px;font-size:12px;width:100%;outline:none;background:#fff;color:#1a2332;}
+.form-row input:focus,.form-row select:focus{border-color:#1a56db;box-shadow:0 0 0 2px rgba(26,86,219,0.12);}
+.form-actions{display:flex;gap:7px;margin-top:10px;}
+
+/* ===== 重複ダイアログアイテム ===== */
+.dup-item{background:#fff8e1;border:1.5px solid #ffc107;border-radius:6px;padding:11px 13px;margin-bottom:8px;}
+.dup-item.mode-over{border-color:#1a56db;background:#eff4ff;}
+.dup-item.mode-skip{opacity:0.5;}
+.dup-top{display:flex;justify-content:space-between;align-items:center;}
+.dup-name{font-weight:600;font-size:12px;}
+.dup-btns{display:flex;gap:5px;}
+.dup-status{font-size:10px;margin-top:4px;color:#9aa3b0;}
+.dup-status.over{color:#1a56db;}
+
+/* ===== メッセージ ===== */
+.msg-bar{min-height:32px;margin-bottom:12px;}
+.msg-ok{background:#e8f5e9;color:#1b5e20;padding:8px 14px;border-radius:5px;font-size:12px;}
+.msg-err{background:#fde8e8;color:#c0392b;padding:8px 14px;border-radius:5px;font-size:12px;}
+
+/* ===== 設定モーダル内 ===== */
+.settings-block{border:1px solid #e0e4ea;border-radius:8px;padding:16px;margin-bottom:14px;}
+.settings-block-title{font-size:12px;font-weight:600;color:#5a6478;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.settings-row{display:grid;grid-template-columns:120px 1fr;gap:8px;padding:5px 0;font-size:12px;border-bottom:1px solid #f4f5f8;}
+.settings-row:last-child{border-bottom:none;}
+.settings-row dt{color:#9aa3b0;}
+.settings-row dd{color:#1a2332;font-weight:500;}
+.apikey-wrap{display:flex;gap:7px;align-items:center;margin-bottom:8px;}
+.apikey-wrap input{flex:1;padding:8px 11px;border:1px solid #dde1e8;border-radius:5px;font-size:12px;font-family:'Courier New',monospace;outline:none;}
+.apikey-wrap input:focus{border-color:#1a56db;}
+.api-test-result{font-size:11px;margin-top:5px;}
+
+/* ===== アドレスポップオーバー ===== */
+.addr-pop{
+    position:fixed;z-index:300;background:#fff;
+    border:1px solid #e0e4ea;border-radius:8px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.14);
+    width:280px;padding:14px;
+}
+.addr-pop-header{font-size:11px;color:#9aa3b0;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+.addr-pop-addr{font-family:'Courier New',monospace;font-size:10px;color:#1a2332;background:#f8f9fc;padding:6px 8px;border-radius:4px;word-break:break-all;margin-bottom:10px;line-height:1.5;}
+.addr-pop-name{font-size:12px;font-weight:500;color:#1a56db;margin-bottom:8px;}
+.addr-pop-actions{display:flex;flex-direction:column;gap:6px;}
+.addr-pop-btn{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:5px;border:1px solid #e0e4ea;background:#fff;color:#1a2332;font-size:11px;cursor:pointer;width:100%;text-align:left;transition:background 0.15s;}
+.addr-pop-btn:hover{background:#f8f9fc;}
+.addr-pop-btn.primary{background:#1a56db;color:#fff;border-color:#1a56db;}
+.addr-pop-btn.primary:hover{background:#1447b8;}
+.addr-pop-label-row{display:flex;gap:6px;margin-top:4px;}
+.addr-pop-label-row input{flex:1;padding:6px 8px;border:1px solid #dde1e8;border-radius:4px;font-size:11px;outline:none;}
+.addr-pop-label-row input:focus{border-color:#1a56db;}
+.addr-pop-label-row button{padding:6px 10px;border-radius:4px;background:#1a56db;color:#fff;border:none;font-size:11px;cursor:pointer;white-space:nowrap;}
+.addr-pop-divider{border:none;border-top:1px solid #f0f2f5;margin:8px 0;}
+/* ラベル済みアドレス */
+.addr-labeled{color:#059669;font-size:11px;font-weight:500;cursor:pointer;}
+.addr-labeled:hover{text-decoration:underline;}
+
+
+/* ===== 通貨切替トグル ===== */
+.currency-toggle{
+    display:flex;align-items:center;padding:5px 11px;border-radius:5px;
+    border:1px solid #c7d9ff;background:#eff4ff;color:#1a56db;
+    font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;
+}
+.currency-toggle:hover{background:#dbeafe;}
+
+/* ===== グローバルメッセージ（全ページ共通） ===== */
+.global-msg{
+    position:sticky;top:48px;z-index:99;
+    padding:0 24px;
+    min-height:0;
+    transition:min-height 0.2s;
+}
+.global-msg .msg-ok,.global-msg .msg-err{
+    margin:0;border-radius:0;
+    padding:8px 24px;
+    font-size:12px;
+}
+
+/* ===== 取引アドレス編集ペン ===== */
+.addr-edit-btn{
+    display:inline-flex;align-items:center;gap:3px;
+    margin-left:4px;color:#c8cdd6;cursor:pointer;
+    font-size:10px;vertical-align:middle;
+    opacity:0.7;
+}
+.addr-edit-btn:hover{color:#1a56db;opacity:1;}
+tr:hover .addr-edit-btn{opacity:1;}
+
+/* ===== レスポンシブ ===== */
+@media(max-width:768px){
+  .topnav-tab{padding:0 10px;font-size:12px;}
+  .page{padding:14px;}
+  .summary-hero{padding:16px;}
+  .annual-cards{grid-template-columns:repeat(2,1fr);}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== トップナビ ===== -->
+<nav class="topnav">
+  <div class="topnav-brand">
+    <div class="brand-icon">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="5.5" stroke="#fff" stroke-width="1.6"/><path d="M7 4v3.2l2 2" stroke="#fff" stroke-width="1.4" stroke-linecap="round"/></svg>
+    </div>
+    CryptoVault
+  </div>
+  <div class="topnav-tabs">
+    <div class="topnav-tab active" id="nav-summary" onclick="goPage('summary')">サマリー</div>
+    <div class="topnav-tab" id="nav-txlist"  onclick="goPage('txlist')">取引一覧</div>
+    <div class="topnav-tab" id="nav-wallets" onclick="goPage('wallets')">ウォレット</div>
+  </div>
+  <div class="topnav-right">
+    <div class="currency-toggle" id="currencyToggle" onclick="toggleCurrency()" title="評価額の通貨を切り替え">
+      <span id="currencyLabel">¥ JPY</span>
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
+    <span class="ver-badge" id="verBadge">v5.6</span>
+    <button class="btn btn-ghost" onclick="openModal('settingsModal')">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
+      設定
+    </button>
+    <button class="btn btn-primary" onclick="toggleForm('addForm')">+ ウォレット追加</button>
+  </div>
+</nav>
+<div class="msg-bar global-msg" id="msgW"></div>
+
+<!-- ================================================================ -->
+<!-- PAGE: サマリー                                                      -->
+<!-- ================================================================ -->
+<div class="page active" id="page-summary">
+
+  <!-- 実現損益ヒーロー -->
+  <div class="summary-hero">
+    <div>
+      <div class="summary-pnl-label">実現損益</div>
+      <div id="summaryPnlValue" class="summary-pnl-value">¥ —</div>
+      <div class="summary-meta">
+        <span class="meta-chip">総平均法</span>
+        <span class="meta-chip" id="summaryYearChip">—</span>
+      </div>
+    </div>
+    <div class="summary-actions">
+      <button class="btn btn-outline" onclick="exportTxCSV()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v7M3 5l3 3 3-3M1 10h10" stroke="#5a6478" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        CSVダウンロード
+      </button>
+    </div>
+  </div>
+
+  <!-- タブ：年別 / 通貨別 -->
+  <div class="subtabs">
+    <div class="subtab active" id="stab-year"     onclick="switchSummaryTab('year')">年別</div>
+    <div class="subtab"        id="stab-currency" onclick="switchSummaryTab('currency')">通貨別</div>
+  </div>
+
+  <div id="summary-year-content">
+    <div id="annualContent"></div>
+  </div>
+  <div id="summary-currency-content" style="display:none;">
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>通貨</th>
+            <th class="td-right">取引件数</th>
+            <th class="td-right">取得額合計 (USD)</th>
+            <th class="td-right">売却額合計 (USD)</th>
+            <th class="td-right">実現損益 (USD)</th>
+          </tr></thead>
+          <tbody id="currencyTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- PAGE: 取引一覧                                                      -->
+<!-- ================================================================ -->
+<div class="page" id="page-txlist">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-title">
+        取引一覧
+        <span class="count-badge" id="txCountBadge">0</span>
+      </div>
+      <div style="display:flex;gap:7px;">
+        <button class="btn btn-outline btn-sm" onclick="exportTxCSV()">
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1v7M3 5l3 3 3-3M1 10h10" stroke="#5a6478" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          CSV
+        </button>
+      </div>
+    </div>
+
+    <!-- フィルター -->
+    <div style="padding:8px 18px;border-bottom:1px solid #f0f2f5;">
+      <div class="filter-row">
+        <div class="filter-btn">
+          <svg width="9" height="9" viewBox="0 0 9 9" fill="none"><circle cx="4.5" cy="4.5" r="3.5" stroke="#9aa3b0" stroke-width="1.2"/><path d="M4.5 2.5v2.2l1.3 1.3" stroke="#9aa3b0" stroke-width="1" stroke-linecap="round"/></svg>
+          種別:
+          <select id="fType" onchange="renderTxTable()">
+            <option value="">すべて</option>
+            <option value="swap">交換</option>
+            <option value="send">送金</option>
+            <option value="receive">受取</option>
+          </select>
+        </div>
+        <div class="filter-btn">
+          ウォレット:
+          <select id="fWallet" onchange="renderTxTable()"><option value="">すべて</option></select>
+        </div>
+        <div class="filter-btn">
+          年:
+          <select id="fYear" onchange="renderTxTable()"><option value="">すべて</option></select>
+        </div>
+        <span class="filter-count" id="filterCount"></span>
+      </div>
+    </div>
+
+    <!-- テーブル -->
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>種類</th>
+          <th>日時</th>
+          <th>送信元</th>
+          <th>送信先</th>
+          <th class="td-right">売却通貨</th>
+          <th class="td-right">売却数量</th>
+          <th class="td-right">売却評価額(USD)</th>
+          <th class="td-right">取得通貨</th>
+          <th class="td-right">取得数量</th>
+          <th class="td-right">取得評価額(USD)</th>
+          <th class="td-right">手数料</th>
+          <th class="td-right">損益(USD)</th>
+          <th>チェーン</th>
+          <th>TXハッシュ</th>
+        </tr></thead>
+        <tbody id="txBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- PAGE: ウォレット管理                                                 -->
+<!-- ================================================================ -->
+<div class="page" id="page-wallets">
+
+  <!-- ウォレット追加フォーム -->
+  <div class="form-section" id="addForm">
+    <div class="form-section-title">新規ウォレット追加</div>
+    <div class="form-row"><label>ウォレット名</label><input id="fn" placeholder="例: MetaMask Main"></div>
+    <div class="form-row"><label>アドレス</label><input id="fa" placeholder="0x... または bc1..."></div>
+    <div class="form-row">
+      <label>チェーン</label>
+      <select id="fc">
+        <option value="ethereum">Ethereum</option>
+        <option value="polygon">Polygon</option>
+        <option value="arbitrum">Arbitrum</option>
+        <option value="optimism">Optimism</option>
+        <option value="base">Base</option>
+        <option value="bitcoin">Bitcoin</option>
+        <option value="tron">Tron</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="addWallet()">追加</button>
+      <button class="btn btn-outline" onclick="toggleForm('addForm')">キャンセル</button>
+    </div>
+  </div>
+
+  <!-- 編集フォーム -->
+  <div class="form-section" id="editForm">
+    <div class="form-section-title">ウォレット編集</div>
+    <input type="hidden" id="eid">
+    <div class="form-row"><label>ウォレット名</label><input id="en" placeholder="ウォレット名"></div>
+    <div class="form-row"><label>アドレス</label><input id="ea" placeholder="0x..."></div>
+    <div class="form-row">
+      <label>チェーン</label>
+      <select id="ec">
+        <option value="ethereum">Ethereum</option>
+        <option value="polygon">Polygon</option>
+        <option value="arbitrum">Arbitrum</option>
+        <option value="optimism">Optimism</option>
+        <option value="base">Base</option>
+        <option value="bitcoin">Bitcoin</option>
+        <option value="tron">Tron</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveEdit()">保存</button>
+      <button class="btn btn-outline" onclick="toggleForm('editForm')">キャンセル</button>
+    </div>
+  </div>
+
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-title">
+        ウォレット
+        <span class="count-badge gray" id="walletCountBadge">0件</span>
+      </div>
+      <div style="display:flex;gap:7px;">
+        <button class="btn btn-outline btn-sm" onclick="exportWalletCSV()">CSVエクスポート</button>
+        <button class="btn btn-outline btn-sm" onclick="triggerImport()">CSVインポート</button>
+        <button class="btn btn-danger  btn-sm" onclick="clearAllData()">データクリア</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:18%;">名前</th>
+          <th style="width:10%;">チェーン</th>
+          <th style="width:35%;">アドレス</th>
+          <th style="width:15%;" class="td-right">残高</th>
+          <th style="width:22%;">操作</th>
+        </tr></thead>
+        <tbody id="walletTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- 設定モーダル                                                        -->
+<!-- ================================================================ -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <div class="modal-title">設定</div>
+
+    <!-- バージョン情報 -->
+    <div class="settings-block">
+      <div class="settings-block-title">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><rect x="1" y="1" width="11" height="11" rx="2" stroke="#5a6478" stroke-width="1.3"/><path d="M4.5 6.5h4M6.5 4.5v4" stroke="#5a6478" stroke-width="1.2" stroke-linecap="round"/></svg>
+        バージョン情報
+      </div>
+      <dl>
+        <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.6</dd></div>
+        <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
+        <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
+        <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
+        <div class="settings-row"><dt>取引件数</dt><dd id="sTC">—</dd></div>
+      </dl>
+    </div>
+
+    <!-- Zerion APIキー -->
+    <div class="settings-block" style="border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;">
+      <div class="settings-block-title">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="5" cy="8" r="3" stroke="#9a5c00" stroke-width="1.3"/><path d="M7.5 5.5l3.5-3.5M9 2h2v2" stroke="#9a5c00" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Zerion API キー
+      </div>
+      <p style="font-size:11px;color:#9aa3b0;margin-bottom:10px;line-height:1.6;">
+        Ethereum / Polygon 等の残高・取引履歴取得に必要です。<br>
+        <a href="https://zerion.io/developers" target="_blank" style="color:#1a56db;">zerion.io/developers</a> で無料取得できます。<br>
+        キーはこのブラウザのlocalStorageのみに保存されます。
+      </p>
+      <div class="apikey-wrap">
+        <input type="password" id="apiKeyInput" placeholder="zerion_live_...">
+        <button class="btn btn-outline btn-sm" id="apiKeyToggle" onclick="toggleApiVis()">表示</button>
+      </div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-sm" onclick="saveApiKey()">保存</button>
+        <button class="btn btn-danger  btn-sm" onclick="clearApiKey()">削除</button>
+        <button class="btn btn-outline btn-sm" onclick="testApiKey()">接続テスト</button>
+      </div>
+      <div class="api-test-result" id="apiTestResult"></div>
+    </div>
+
+    <!-- データ管理 -->
+    <div class="settings-block">
+      <div class="settings-block-title">データ管理</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="exportAllJSON()">JSONバックアップ</button>
+        <button class="btn btn-outline btn-sm" onclick="importAllJSON()">JSON復元</button>
+        <button class="btn btn-outline btn-sm" onclick="openLabelMgr()">アドレスラベル管理</button>
+      </div>
+      <input type="file" id="jsonImportFile" style="display:none;" accept=".json" onchange="doImportJSON(event)">
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('settingsModal')">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- アドレスポップオーバー                                              -->
+<!-- ================================================================ -->
+<div id="addrPop" class="addr-pop" style="display:none;">
+  <div class="addr-pop-header">
+    <span id="addrPopRole"></span>
+    <span style="cursor:pointer;color:#9aa3b0;font-size:14px;" onclick="closeAddrPop()">✕</span>
+  </div>
+  <div class="addr-pop-addr" id="addrPopAddr"></div>
+  <div id="addrPopNameRow"></div>
+  <div class="addr-pop-actions">
+    <a id="addrPopExplorer" href="#" target="_blank" class="addr-pop-btn" onclick="closeAddrPop()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V8M8 1h3m0 0v3m0-3L5 7" stroke="#5a6478" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      ブロックチェーンエクスプローラーで調べる
+    </a>
+    <button class="addr-pop-btn primary" id="addrPopRegisterBtn" onclick="addrPopRegister()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="#fff" stroke-width="1.2"/><path d="M6 3.5v5M3.5 6h5" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/></svg>
+      ウォレットとして登録
+    </button>
+    <hr class="addr-pop-divider">
+    <div style="font-size:11px;color:#9aa3b0;margin-bottom:4px;">ラベルを付けて管理</div>
+    <div class="addr-pop-label-row">
+      <input id="addrPopLabelInput" placeholder="例: 取引所Aの入金アドレス" maxlength="40">
+      <button onclick="addrPopSaveLabel()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- ウォレット登録クイックモーダル（アドレスポップから）               -->
+<!-- ================================================================ -->
+<div class="modal-overlay" id="quickRegModal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-title">ウォレットとして登録</div>
+    <input type="hidden" id="qrAddr">
+    <input type="hidden" id="qrChainHint">
+    <div class="form-row" style="margin-bottom:10px;"><label>アドレス</label><input id="qrAddrDisp" readonly style="background:#f8f9fc;color:#9aa3b0;"></div>
+    <div class="form-row" style="margin-bottom:10px;"><label>ウォレット名</label><input id="qrName" placeholder="例: 取引所A 出金アドレス"></div>
+    <div class="form-row" style="margin-bottom:10px;">
+      <label>チェーン</label>
+      <select id="qrChain">
+        <option value="ethereum">Ethereum</option>
+        <option value="polygon">Polygon</option>
+        <option value="arbitrum">Arbitrum</option>
+        <option value="optimism">Optimism</option>
+        <option value="base">Base</option>
+        <option value="bitcoin">Bitcoin</option>
+        <option value="tron">Tron</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('quickRegModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="quickRegSave()">登録する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- ラベル管理モーダル                                                  -->
+<!-- ================================================================ -->
+<div class="modal-overlay" id="labelMgrModal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-title">アドレスラベル管理</div>
+    <p style="font-size:12px;color:#9aa3b0;margin-bottom:14px;">ウォレット登録せずにアドレスに名前を付けて管理できます。</p>
+    <div id="labelMgrList"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('labelMgrModal')">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- 取引 送信元/送信先 編集モーダル                                      -->
+<!-- ================================================================ -->
+<div class="modal-overlay" id="txAddrModal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-title" id="txAddrModalTitle">送信元を設定</div>
+    <input type="hidden" id="txAddrTxId">
+    <input type="hidden" id="txAddrField">
+    <div style="background:#f8f9fc;border-radius:6px;padding:10px 12px;margin-bottom:16px;font-size:11px;font-family:'Courier New',monospace;color:#5a6478;word-break:break-all;" id="txAddrCurrent"></div>
+
+    <!-- タブ切替 -->
+    <div style="display:flex;border-bottom:1px solid #e0e4ea;margin-bottom:14px;">
+      <div class="subtab active" id="txAddrTab1" onclick="switchTxAddrTab(1)" style="padding:8px 14px;font-size:12px;">新規登録</div>
+      <div class="subtab" id="txAddrTab2" onclick="switchTxAddrTab(2)" style="padding:8px 14px;font-size:12px;">登録済みから選ぶ</div>
+      <div class="subtab" id="txAddrTab3" onclick="switchTxAddrTab(3)" style="padding:8px 14px;font-size:12px;">ラベルのみ</div>
+    </div>
+
+    <!-- タブ1: 新規登録 -->
+    <div id="txAddrPane1">
+      <div class="form-row" style="margin-bottom:9px;"><label style="font-size:12px;color:#5a6478;">ウォレット名</label><input id="txAddrNewName" placeholder="例: bitFlyer 出金アドレス"></div>
+      <div class="form-row" style="margin-bottom:9px;">
+        <label style="font-size:12px;color:#5a6478;">チェーン</label>
+        <select id="txAddrNewChain">
+          <option value="ethereum">Ethereum</option>
+          <option value="polygon">Polygon</option>
+          <option value="arbitrum">Arbitrum</option>
+          <option value="optimism">Optimism</option>
+          <option value="base">Base</option>
+          <option value="bitcoin">Bitcoin</option>
+          <option value="tron">Tron</option>
+        </select>
+      </div>
+      <p style="font-size:11px;color:#9aa3b0;margin-top:4px;">ウォレット一覧にも追加され、以降同じアドレスは名前で表示されます。</p>
+    </div>
+
+    <!-- タブ2: 登録済みから選ぶ -->
+    <div id="txAddrPane2" style="display:none;">
+      <div class="form-row" style="margin-bottom:9px;">
+        <label style="font-size:12px;color:#5a6478;">ウォレット</label>
+        <select id="txAddrSelectWallet" style="font-size:12px;">
+          <option value="">選択してください</option>
+        </select>
+      </div>
+      <p style="font-size:11px;color:#9aa3b0;margin-top:4px;">選択したウォレットのアドレスをこの取引の送信元/送信先に設定します。</p>
+    </div>
+
+    <!-- タブ3: ラベルのみ -->
+    <div id="txAddrPane3" style="display:none;">
+      <div id="txAddrAddrRow" class="form-row" style="margin-bottom:9px;">
+        <label style="font-size:12px;color:#5a6478;">アドレス</label>
+        <input id="txAddrManualAddr" placeholder="0x... または bc1... (任意)" style="font-family:'Courier New',monospace;font-size:11px;">
+      </div>
+      <div class="form-row" style="margin-bottom:9px;">
+        <label style="font-size:12px;color:#5a6478;">ラベル名</label>
+        <input id="txAddrLabel" placeholder="例: 取引所Aの入金アドレス" maxlength="40">
+      </div>
+      <p style="font-size:11px;color:#9aa3b0;margin-top:4px;">
+        アドレスとラベルを設定します。アドレスが分かれば入力することで取引にも反映されます。<br>
+        ラベルはアドレス帳に保存され、同じアドレスが他の取引に現れたときも緑字で表示されます。
+      </p>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('txAddrModal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="txAddrSave()">設定する</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- 重複ダイアログ                                                      -->
+<!-- ================================================================ -->
+<div class="modal-overlay" id="dupModal">
+  <div class="modal">
+    <div class="modal-title">重複するウォレットが見つかりました</div>
+    <p style="font-size:12px;color:#9aa3b0;margin-bottom:14px;">各ウォレットごとに操作を選択してください。</p>
+    <div id="dupList"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="dupAll('skip')">すべてスキップ</button>
+      <button class="btn btn-outline" onclick="dupAll('over')" style="color:#9a5c00;border-color:#fcd34d;">すべて上書き</button>
+      <button class="btn btn-primary" onclick="applyImport()">適用してインポート</button>
+      <button class="btn btn-danger"  onclick="closeModal('dupModal')">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="csvFile"  style="display:none;" accept=".csv"  onchange="handleCSVImport(event)">
+
+<script>
+// =====================================================================
+// 定数・ストレージ
+// =====================================================================
+const APP_VER  = '5.6';
+const APP_DATE = '2026-03-17';
+const SK  = 'cv9';
+const SKS = 'cv9_settings';
+const ZP  = '/.netlify/functions/zerion';
+
+// 通貨設定
+let _currency = localStorage.getItem('cv9_currency') || 'JPY';
+let _fxRate   = 150;
+
+async function fetchFxRate() {
+    const cached = JSON.parse(localStorage.getItem('cv9_fx')||'{}');
+    if (cached.rate && cached.ts && Date.now()-cached.ts < 3600000) {
+        _fxRate = cached.rate; return;
+    }
+    try {
+        const r = await fetch('https://open.er-api.com/v6/latest/USD');
+        const j = await r.json();
+        _fxRate = j.rates?.JPY || 150;
+        localStorage.setItem('cv9_fx', JSON.stringify({rate:_fxRate, ts:Date.now()}));
+    } catch(e) { _fxRate = cached.rate || 150; }
+}
+
+function toggleCurrency() {
+    _currency = _currency === 'JPY' ? 'USD' : 'JPY';
+    localStorage.setItem('cv9_currency', _currency);
+    document.getElementById('currencyLabel').textContent = _currency === 'JPY' ? '¥ JPY' : '$ USD';
+    renderTxTable();
+    renderSummary();
+}
+
+// USD値を現在の通貨でフォーマット（nullなら null返す）
+function fmtMoney(usdVal) {
+    if (usdVal == null || usdVal === 0) return null;
+    if (_currency === 'JPY') {
+        const jpy = Math.round(usdVal * _fxRate);
+        return '¥' + jpy.toLocaleString('ja-JP');
+    }
+    return '$' + Number(usdVal).toFixed(2);
+}
+
+const load  = () => { try{return JSON.parse(localStorage.getItem(SK))||{wallets:[],transactions:[]};}catch(e){return{wallets:[],transactions:[]};} };
+const save  = d  => localStorage.setItem(SK, JSON.stringify(d));
+const loadS = () => { try{return JSON.parse(localStorage.getItem(SKS))||{};}catch(e){return{};} };
+const saveS = s  => localStorage.setItem(SKS, JSON.stringify(s));
+const getApiKey = () => loadS().zerionApiKey || '';
+
+async function zerionFetch(path) {
+    const key = getApiKey();
+    if (!key) throw new Error('Zerion APIキーが設定されていません。設定から登録してください。');
+    const url = `${ZP}?path=${encodeURIComponent(path)}&apikey=${encodeURIComponent(key)}`;
+    const r = await fetch(url);
+    if (!r.ok) { const t=await r.text(); console.error('Zerion',r.status,t); throw new Error(`APIエラー (${r.status})`); }
+    return r.json();
+}
+
+// =====================================================================
+// ページ・ナビ
+// =====================================================================
+function goPage(name) {
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.topnav-tab').forEach(t=>t.classList.remove('active'));
+    document.getElementById('page-'+name).classList.add('active');
+    document.getElementById('nav-'+name).classList.add('active');
+    if(name==='summary') renderSummary();
+    if(name==='txlist')  { fillTxFilters(); renderTxTable(); }
+    if(name==='wallets') renderWallets();
+}
+
+function switchSummaryTab(tab) {
+    ['year','currency'].forEach(t=>{
+        document.getElementById('stab-'+t).classList.toggle('active',t===tab);
+        document.getElementById('summary-'+t+'-content').style.display=t===tab?'block':'none';
+    });
+    if(tab==='currency') renderCurrencyTable();
+}
+
+function toggleForm(id) {
+    const el=document.getElementById(id);
+    const was=el.classList.contains('open');
+    document.querySelectorAll('.form-section').forEach(f=>f.classList.remove('open'));
+    if(!was){el.classList.add('open');el.scrollIntoView({behavior:'smooth',block:'nearest'});}
+}
+
+function openModal(id) {
+    if(id==='settingsModal') {
+        const d=load();
+        document.getElementById('sWC').textContent=d.wallets.length+'件';
+        document.getElementById('sTC').textContent=d.transactions.length+'件';
+        document.getElementById('apiKeyInput').value=getApiKey();
+        document.getElementById('apiTestResult').textContent='';
+    }
+    document.getElementById(id).classList.add('open');
+}
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+// =====================================================================
+// ウォレット CRUD
+// =====================================================================
+function addWallet() {
+    const name=document.getElementById('fn').value.trim();
+    const addr=document.getElementById('fa').value.trim().toLowerCase();
+    const chain=document.getElementById('fc').value;
+    if(!name||!addr){showMsg('名前とアドレスを入力してください','err');return;}
+    const d=load();
+    if(d.wallets.find(w=>w.address===addr)){showMsg('このアドレスは既に登録されています','err');return;}
+    const w={id:Date.now(),name,address:addr,chain,balanceLabel:''};
+    d.wallets.push(w); save(d);
+    document.getElementById('fn').value=''; document.getElementById('fa').value='';
+    toggleForm('addForm');
+    showMsg('ウォレットを追加しました','ok'); renderWallets(); fetchBalance(w.id);
+}
+
+function openEdit(wid) {
+    const d=load(); const w=d.wallets.find(x=>x.id===wid); if(!w) return;
+    document.querySelectorAll('.form-section').forEach(f=>f.classList.remove('open'));
+    document.getElementById('eid').value=wid;
+    document.getElementById('en').value=w.name;
+    document.getElementById('ea').value=w.address;
+    document.getElementById('ec').value=w.chain;
+    const ef=document.getElementById('editForm');
+    ef.classList.add('open'); ef.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function saveEdit() {
+    const id=parseInt(document.getElementById('eid').value);
+    const name=document.getElementById('en').value.trim();
+    const addr=document.getElementById('ea').value.trim().toLowerCase();
+    const chain=document.getElementById('ec').value;
+    if(!name||!addr){showMsg('名前とアドレスを入力してください','err');return;}
+    const d=load(); const idx=d.wallets.findIndex(w=>w.id===id); if(idx<0) return;
+    const old=d.wallets[idx].address;
+    d.wallets[idx]={...d.wallets[idx],name,address:addr,chain};
+    save(d); toggleForm('editForm'); showMsg('保存しました','ok'); renderWallets();
+    if(addr!==old) fetchBalance(id);
+}
+
+function delWallet(wid) {
+    if(!confirm('このウォレットを削除しますか？関連する取引履歴も削除されます。')) return;
+    const d=load();
+    d.wallets=d.wallets.filter(w=>w.id!==wid);
+    d.transactions=d.transactions.filter(t=>t.walletId!==wid);
+    save(d); showMsg('削除しました','ok'); renderWallets();
+}
+
+function clearAllData() {
+    if(!confirm('すべてのデータを削除します。よろしいですか？')) return;
+    localStorage.removeItem(SK); showMsg('データをクリアしました','ok'); renderWallets();
+}
+
+// =====================================================================
+// 残高・取引取得
+// =====================================================================
+async function fetchBalance(wid) {
+    const d=load(); const w=d.wallets.find(x=>x.id===wid); if(!w) return;
+    try {
+        if(w.chain==='bitcoin'){
+            const r=await fetch(`https://mempool.space/api/address/${w.address}`);
+            const j=await r.json();
+            const bal=(j.chain_stats.funded_txo_sum-j.chain_stats.spent_txo_sum)/1e8;
+            w.balanceLabel=`${bal.toFixed(6)} BTC`;
+        } else if(w.chain!=='tron'){
+            const j=await zerionFetch(`wallets/${w.address}/positions/?filter[position_types]=wallet&currency=usd&sort=value`);
+            if(j.data&&Array.isArray(j.data)){
+                const usd=j.data.reduce((s,p)=>s+(p.attributes?.value||0),0);
+                w.balanceLabel=`$${usd.toFixed(2)}`;
+            }
+        }
+        save(d); renderWallets();
+    } catch(e){ console.error('残高取得エラー',e); showMsg('残高取得エラー: '+e.message,'err'); }
+}
+
+async function fetchTx(wid) {
+    const d=load(); const w=d.wallets.find(x=>x.id===wid); if(!w) return;
+    if(w.chain==='tron'){showMsg('Tronは手動/CSV管理のみ対応です','err');return;}
+    showMsg('取引履歴を取得中...','ok');
+    try {
+        if(w.chain==='bitcoin') await fetchBTCTx(w,d);
+        else await fetchZerionTx(w,d);
+        save(d); showMsg('取引履歴を更新しました','ok'); renderWallets();
+    } catch(e){ console.error(e); showMsg('取得エラー: '+e.message,'err'); }
+}
+
+async function fetchBTCTx(w,d) {
+    const r=await fetch(`https://mempool.space/api/address/${w.address}/txs`);
+    const txs=await r.json();
+    txs.forEach(tx=>{
+        if(d.transactions.find(t=>t.hash===tx.txid&&t.walletId===w.id)) return;
+        const myIn =(tx.vout||[]).filter(o=>o.scriptpubkey_address===w.address).reduce((s,o)=>s+o.value,0)/1e8;
+        const myOut=(tx.vin ||[]).filter(i=>i.prevout?.scriptpubkey_address===w.address).reduce((s,i)=>s+i.prevout.value,0)/1e8;
+        const fee=(tx.fee||0)/1e8; const net=myIn-myOut;
+
+        // 送信元アドレス（複数inputの場合は最初の外部アドレス）
+        const fromAddr = net<0
+            ? w.address  // 送金：自分が送信元
+            : (tx.vin||[]).map(i=>i.prevout?.scriptpubkey_address).find(a=>a&&a!==w.address) || '';
+
+        // 送信先アドレス（受取：自分、送金：相手のvout）
+        const toAddr = net>=0
+            ? w.address  // 受取：自分が送信先
+            : (tx.vout||[]).find(o=>o.scriptpubkey_address&&o.scriptpubkey_address!==w.address)?.scriptpubkey_address || '';
+
+        d.transactions.push({
+            id:Date.now()+Math.random(), walletId:w.id,
+            timestamp:tx.status?.block_time?new Date(tx.status.block_time*1000).toISOString():new Date().toISOString(),
+            type:net>=0?'receive':'send', hash:tx.txid,
+            from:fromAddr, to:toAddr,
+            outCurrency:net<0?'BTC':'', outQuantity:net<0?Math.abs(net):0, outValue:0,
+            inCurrency:net>=0?'BTC':'',  inQuantity:net>=0?Math.abs(net):0, inValue:0,
+            feeQuantity:fee, feeValue:0, pnl:0, chain:'bitcoin',
+            source:'bitcoin'
+        });
+    });
+}
+
+async function fetchZerionTx(w,d) {
+    let path=`wallets/${w.address}/transactions/?currency=usd&page[size]=100`;
+    let pages=0;
+    while(path&&pages<10){
+        const j=await zerionFetch(path); pages++;
+        (j.data||[]).forEach(item=>{
+            const hash=(item.attributes?.hash)||item.id;
+            if(d.transactions.find(t=>t.hash===hash&&t.walletId===w.id)) return;
+            const p=parseZerionItem(item,w.id,w.address);
+            if(p) d.transactions.push(p);
+        });
+        const next=j.links?.next;
+        path=next?next.replace(/^https?:\/\/api\.zerion\.io\/v1\//,''):null;
+    }
+}
+
+function parseZerionItem(item,walletId,walletAddr) {
+    const a=item.attributes||{};
+    const hash=a.hash||item.id;
+    const ts=a.mined_at||a.sent_at||new Date().toISOString();
+    const chain=a.chain||'unknown';
+    const trs=a.transfers||{};
+    const feeObj=a.fee||{};
+    const feeQ=feeObj.quantity?.float||0;
+    const feeV=feeObj.value||(feeQ*(feeObj.price||0));
+    const inT=(trs||[]).filter?.(t=>t.direction==='in')||[];
+    const outT=(trs||[]).filter?.(t=>t.direction==='out')||[];
+    const sym=t=>t.fungible_info?.symbol||'UNKNOWN';
+    const qty=t=>{ if(t.quantity?.float!=null)return t.quantity.float; const dec=t.fungible_info?.implementations?.[0]?.decimals??18; return(t.quantity?.int||0)/Math.pow(10,dec); };
+    const val=t=>t.value||(qty(t)*(t.price||0));
+    let type,from,to,oC,oQ,oV,iC,iQ,iV,pnl;
+    if(outT.length>0&&inT.length>0){
+        type='swap'; from=outT[0].sender?.address||walletAddr; to=inT[0].recipient?.address||walletAddr;
+        oC=sym(outT[0]);oQ=qty(outT[0]);oV=val(outT[0]); iC=sym(inT[0]);iQ=qty(inT[0]);iV=val(inT[0]); pnl=iV-oV-feeV;
+    } else if(outT.length>0){
+        type='send'; from=outT[0].sender?.address||walletAddr; to=outT[0].recipient?.address||'';
+        oC=sym(outT[0]);oQ=qty(outT[0]);oV=val(outT[0]); iC='';iQ=0;iV=0; pnl=-feeV;
+    } else if(inT.length>0){
+        type='receive'; from=inT[0].sender?.address||''; to=inT[0].recipient?.address||walletAddr;
+        oC='';oQ=0;oV=0; iC=sym(inT[0]);iQ=qty(inT[0]);iV=val(inT[0]); pnl=0;
+    } else return null;
+    return {id:Date.now()+Math.random(),walletId,timestamp:ts,type,hash,from:from||'',to:to||'',
+            outCurrency:oC||'',outQuantity:oQ||0,outValue:oV||0,
+            inCurrency:iC||'',inQuantity:iQ||0,inValue:iV||0,
+            feeQuantity:feeQ,feeValue:feeV,pnl:pnl||0,chain,source:'zerion'};
+}
+
+// =====================================================================
+// アドレス解決
+// =====================================================================
+// ラベル管理（cv9_labels: { address -> label } ）
+const SKL = 'cv9_labels';
+const loadLabels = () => { try{return JSON.parse(localStorage.getItem(SKL))||{};}catch(e){return{};} };
+const saveLabels = l => localStorage.setItem(SKL, JSON.stringify(l));
+function getLabel(addr){ if(!addr)return null; return loadLabels()[addr.toLowerCase()]||null; }
+
+// チェーンからエクスプローラーURLを生成
+function explorerUrl(addr, chain) {
+    const map = {
+        ethereum:  `https://etherscan.io/address/${addr}`,
+        polygon:   `https://polygonscan.com/address/${addr}`,
+        arbitrum:  `https://arbiscan.io/address/${addr}`,
+        optimism:  `https://optimistic.etherscan.io/address/${addr}`,
+        base:      `https://basescan.org/address/${addr}`,
+        bitcoin:   `https://mempool.space/address/${addr}`,
+        tron:      `https://tronscan.org/#/address/${addr}`,
+    };
+    return map[chain] || `https://etherscan.io/address/${addr}`;
+}
+
+// =====================================================================
+// アドレスポップオーバー
+let _popAddr='', _popChain='', _popRole='';
+
+function showAddrPop(addr, chain, role, event) {
+    if(!addr) return;
+    event.stopPropagation();
+    _popAddr=addr; _popChain=chain||'unknown'; _popRole=role;
+    const pop=document.getElementById('addrPop');
+    document.getElementById('addrPopRole').textContent=role==='from'?'送信元アドレス':'送信先アドレス';
+    document.getElementById('addrPopAddr').textContent=addr;
+
+    const d=load();
+    const name=resolveName(addr,d.wallets);
+    const lbl=getLabel(addr);
+    const nameRow=document.getElementById('addrPopNameRow');
+    const regBtn=document.getElementById('addrPopRegisterBtn');
+    if(name){
+        nameRow.innerHTML=`<div class="addr-pop-name">登録済みウォレット: ${esc(name)}</div>`;
+        regBtn.style.display='none';
+    } else if(lbl){
+        nameRow.innerHTML=`<div class="addr-pop-name" style="color:#059669;">ラベル: ${esc(lbl)}</div>`;
+        regBtn.style.display='flex';
+    } else {
+        nameRow.innerHTML='';
+        regBtn.style.display='flex';
+    }
+    document.getElementById('addrPopExplorer').href=explorerUrl(addr,_popChain);
+    document.getElementById('addrPopLabelInput').value=lbl||'';
+
+    const x=event.clientX, y=event.clientY;
+    const pw=280, vw=window.innerWidth, vh=window.innerHeight;
+    pop.style.left=(x+pw+10>vw ? x-pw-4 : x+4)+'px';
+    pop.style.top =(y+260>vh  ? y-260   : y+4)+'px';
+    pop.style.display='block';
+    setTimeout(()=>{ document.addEventListener('click',_popOutside,{once:true}); },50);
+}
+function _popOutside(e){ const p=document.getElementById('addrPop'); if(p&&!p.contains(e.target))closeAddrPop(); }
+function closeAddrPop(){ document.getElementById('addrPop').style.display='none'; document.removeEventListener('click',_popOutside); }
+
+function addrPopRegister(){
+    closeAddrPop();
+    document.getElementById('qrAddr').value     =_popAddr;
+    document.getElementById('qrAddrDisp').value =_popAddr;
+    document.getElementById('qrName').value     =getLabel(_popAddr)||'';
+    document.getElementById('qrChain').value    =_popChain!=='unknown'?_popChain:'ethereum';
+    openModal('quickRegModal');
+}
+function quickRegSave(){
+    const addr=document.getElementById('qrAddr').value;
+    const name=document.getElementById('qrName').value.trim();
+    const chain=document.getElementById('qrChain').value;
+    if(!name){alert('ウォレット名を入力してください');return;}
+    const d=load();
+    if(d.wallets.find(w=>w.address===addr)){alert('このアドレスは既に登録されています');return;}
+    const w={id:Date.now(),name,address:addr,chain,balanceLabel:''};
+    d.wallets.push(w); save(d);
+    closeModal('quickRegModal');
+    showMsg('ウォレットを登録しました','ok');
+    renderTxTable(); renderWallets(); fetchBalance(w.id);
+}
+function addrPopSaveLabel(){
+    const lbl=document.getElementById('addrPopLabelInput').value.trim();
+    const labels=loadLabels();
+    if(lbl) labels[_popAddr.toLowerCase()]=lbl;
+    else    delete labels[_popAddr.toLowerCase()];
+    saveLabels(labels);
+    closeAddrPop();
+    showMsg(lbl?`ラベル「${lbl}」を保存しました`:'ラベルを削除しました','ok');
+    renderTxTable();
+}
+
+// ラベル管理モーダル
+function openLabelMgr(){
+    const labels=loadLabels();
+    const entries=Object.entries(labels);
+    const el=document.getElementById('labelMgrList');
+    if(!entries.length){
+        el.innerHTML='<p style="color:#9aa3b0;font-size:12px;padding:10px 0;">ラベルが登録されていません</p>';
+    } else {
+        el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead><tr style="background:#f8f9fc;">
+            <th style="padding:8px 12px;text-align:left;color:#9aa3b0;font-weight:500;border-bottom:1px solid #e8eaed;">アドレス</th>
+            <th style="padding:8px 12px;text-align:left;color:#9aa3b0;font-weight:500;border-bottom:1px solid #e8eaed;">ラベル</th>
+            <th style="padding:8px 12px;width:60px;border-bottom:1px solid #e8eaed;"></th>
+        </tr></thead><tbody>
+        ${entries.map(([addr,lbl])=>`<tr style="border-bottom:1px solid #f4f5f8;">
+            <td style="padding:9px 12px;font-family:'Courier New',monospace;font-size:10px;color:#5a6478;">${esc(addr.slice(0,22))}…</td>
+            <td style="padding:9px 12px;color:#059669;font-weight:500;">${esc(lbl)}</td>
+            <td style="padding:9px 12px;"><button class="btn btn-danger btn-sm" onclick="deleteLabel('${esc(addr)}')">削除</button></td>
+        </tr>`).join('')}
+        </tbody></table>`;
+    }
+    openModal('labelMgrModal');
+}
+function deleteLabel(addr){
+    if(!confirm(`このラベルを削除しますか？`))return;
+    const labels=loadLabels(); delete labels[addr.toLowerCase()]; saveLabels(labels);
+    openLabelMgr(); renderTxTable();
+}
+
+// =====================================================================
+function resolveName(addr,wallets){ if(!addr)return null; const w=wallets.find(w=>w.address===addr.toLowerCase()); return w?w.name:null; }
+function addrLabel(addr,wallets,chain,role){
+    if(!addr) return '<span class="addr-unknown" style="cursor:default;">—</span>';
+    const n=resolveName(addr.toLowerCase(),wallets);
+    const lbl=getLabel(addr);
+    const cl=chain||'unknown';
+    const r=role||'';
+    const onClick=`showAddrPop('${addr.replace(/'/g,"\\'")}','${cl}','${r}',event)`;
+    if(n)   return `<span class="addr-known"   title="${esc(addr)}" style="cursor:pointer;" onclick="${onClick}">${esc(n)}</span>`;
+    if(lbl) return `<span class="addr-labeled" title="${esc(addr)}" onclick="${onClick}">${esc(lbl)}</span>`;
+    if(addr) return `<span class="addr-unknown" title="${esc(addr)}" style="cursor:pointer;" onclick="${onClick}">${addr.slice(0,10)}… <svg width='9' height='9' viewBox='0 0 9 9' fill='none' style='vertical-align:middle;'><circle cx='4.5' cy='4.5' r='4' stroke='#9aa3b0' stroke-width='1'/><path d='M4.5 3v1.8M4.5 6.2v.3' stroke='#9aa3b0' stroke-width='1' stroke-linecap='round'/></svg></span>`;
+    return '<span class="addr-unknown">—</span>';
+}
+
+
+// =====================================================================
+// ウォレット一覧レンダリング
+// =====================================================================
+function renderWallets() {
+    const d=load();
+    document.getElementById('walletCountBadge').textContent=d.wallets.length+'件';
+    const tb=document.getElementById('walletTableBody');
+    if(!d.wallets.length){
+        tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#9aa3b0;padding:28px;">ウォレットがまだ登録されていません</td></tr>';
+        return;
+    }
+    tb.innerHTML=d.wallets.map(w=>{
+        const isTron=w.chain==='tron';
+        const bal=w.balanceLabel||(isTron?'手動管理':'未取得');
+        const txBtn=isTron
+            ?`<button class="btn btn-outline btn-sm" disabled style="opacity:0.4;">TX更新不可</button>`
+            :`<button class="btn btn-outline btn-sm" onclick="fetchTx(${w.id})">TX更新</button>
+              <button class="btn btn-outline btn-sm" onclick="fetchBalance(${w.id})">残高</button>`;
+        return `<tr>
+            <td style="font-weight:500;">${esc(w.name)}</td>
+            <td><span class="badge-chain chain-${w.chain}">${w.chain.toUpperCase()}</span></td>
+            <td class="td-mono td-muted" style="overflow:hidden;text-overflow:ellipsis;max-width:300px;">${esc(w.address)}</td>
+            <td class="td-right" style="font-weight:500;">${esc(bal)}</td>
+            <td><div class="action-cell">
+                ${txBtn}
+                <button class="btn btn-outline btn-sm" onclick="openEdit(${w.id})">編集</button>
+                <button class="btn btn-danger  btn-sm" onclick="delWallet(${w.id})">削除</button>
+            </div></td>
+        </tr>`;
+    }).join('');
+}
+
+// =====================================================================
+// サマリーレンダリング
+// =====================================================================
+function renderSummary() {
+    const d=load();
+    const txs=d.transactions;
+    if(!txs.length){
+        document.getElementById('summaryPnlValue').textContent='—';
+        document.getElementById('summaryYearChip').textContent='—';
+        document.getElementById('annualContent').innerHTML='<p style="color:#9aa3b0;padding:20px;">取引履歴がありません</p>';
+        return;
+    }
+    const years=[...new Set(txs.map(t=>new Date(t.timestamp).getFullYear()))].sort((a,b)=>b-a);
+    const allPnl=txs.filter(t=>t.type==='swap').reduce((s,t)=>s+(t.pnl||0),0);
+    const pnlEl=document.getElementById('summaryPnlValue');
+    pnlEl.textContent=(allPnl>=0?'+ ':'- ')+fmtMoneySummary(Math.abs(allPnl));
+    pnlEl.className='summary-pnl-value'+(allPnl<0?' neg':'');
+    document.getElementById('summaryYearChip').textContent=years[years.length-1]+'-01-01 〜 '+years[0]+'-12-31';
+
+    document.getElementById('annualContent').innerHTML=years.map(yr=>{
+        const yt=txs.filter(t=>new Date(t.timestamp).getFullYear()===yr);
+        const pnl=yt.filter(t=>t.type==='swap').reduce((s,t)=>s+(t.pnl||0),0);
+        const fee=yt.reduce((s,t)=>s+(t.feeValue||0),0);
+        const inV=yt.reduce((s,t)=>s+(t.inValue||0),0);
+        const outV=yt.reduce((s,t)=>s+(t.outValue||0),0);
+        const pC=pnl>0?'pos':pnl<0?'neg':'';
+        const recvC=yt.filter(t=>t.type==='receive').length;
+        const sendC=yt.filter(t=>t.type==='send').length;
+        const swapC=yt.filter(t=>t.type==='swap').length;
+        const cur=_currency==='JPY'?'JPY':'USD';
+        return `<div class="annual-section">
+            <div class="annual-year-label">${yr}</div>
+            <div class="annual-year-sub">${yr}-01-01〜${yr}-12-31 &nbsp;·&nbsp; 取引件数: ${yt.length}件（受取:${recvC} 送金:${sendC} 交換:${swapC}）</div>
+            <div class="annual-cards">
+                <div class="annual-card"><div class="annual-card-label">実現損益</div><div class="annual-card-value ${pC}">${pnl>=0?'+ ':'- '}${fmtMoneySummary(Math.abs(pnl))}</div></div>
+                <div class="annual-card"><div class="annual-card-label">手数料合計</div><div class="annual-card-value">${fmtMoneySummary(fee)}</div></div>
+                <div class="annual-card"><div class="annual-card-label">取得額合計</div><div class="annual-card-value">${fmtMoneySummary(inV)}</div></div>
+                <div class="annual-card"><div class="annual-card-label">売却額合計</div><div class="annual-card-value">${fmtMoneySummary(outV)}</div></div>
+            </div>
+            <div class="card"><div class="table-wrap">${buildAnnualCoinTable(yt,cur)}</div></div>
+        </div>`;
+    }).join('');
+}
+
+function buildAnnualCoinTable(txs, cur) {
+    const coins={};
+    txs.forEach(tx=>{
+        const c=tx.outCurrency||tx.inCurrency;
+        if(!c||c==='-') return;
+        if(!coins[c]) coins[c]={out:0,in:0,pnl:0,cnt:0};
+        coins[c].out+=tx.outValue||0;
+        coins[c].in+=tx.inValue||0;
+        coins[c].pnl+=tx.pnl||0;
+        coins[c].cnt++;
+    });
+    const rows=Object.entries(coins).sort((a,b)=>Math.abs(b[1].pnl)-Math.abs(a[1].pnl));
+    const totalPnl=rows.reduce((s,[,v])=>s+v.pnl,0);
+    const unit=_currency==='JPY'?'JPY':'USD';
+    return `<table><thead><tr>
+        <th>コイン</th>
+        <th class="td-right">取引件数</th>
+        <th class="td-right">取得額 (${unit})</th>
+        <th class="td-right">売却額 (${unit})</th>
+        <th class="td-right">実現損益 (${unit})</th>
+    </tr></thead><tbody>
+    ${rows.map(([coin,v])=>{
+        const pC=v.pnl>0?'style="color:#0d9060;font-weight:500;"':v.pnl<0?'style="color:#c0392b;font-weight:500;"':'';
+        return `<tr>
+            <td style="font-weight:500;">${esc(coin)}</td>
+            <td class="td-right td-muted">${v.cnt}</td>
+            <td class="td-right">${fmtMoneySummary(v.in)}</td>
+            <td class="td-right">${fmtMoneySummary(v.out)}</td>
+            <td class="td-right" ${pC}>${v.pnl>=0?'+':''}${fmtMoneySummary(v.pnl)}</td>
+        </tr>`;
+    }).join('')}
+    <tr style="background:#f8f9fc;font-weight:500;">
+        <td>合計</td><td></td><td></td><td></td>
+        <td class="td-right" style="color:${totalPnl>=0?'#0d9060':'#c0392b'};">${totalPnl>=0?'+':''}${fmtMoneySummary(totalPnl)}</td>
+    </tr></tbody></table>`;
+}
+
+function renderCurrencyTable() {
+    const d=load(); const txs=d.transactions;
+    const coins={};
+    txs.forEach(tx=>{
+        [tx.outCurrency,tx.inCurrency].forEach(c=>{
+            if(!c||c==='-'||c==='') return;
+            if(!coins[c]) coins[c]={cnt:0,in:0,out:0,pnl:0};
+            coins[c].cnt++;
+            coins[c].in+=tx.inValue||0;
+            coins[c].out+=tx.outValue||0;
+            coins[c].pnl+=tx.pnl||0;
+        });
+    });
+    const rows=Object.entries(coins).sort((a,b)=>Math.abs(b[1].pnl)-Math.abs(a[1].pnl));
+    const tb=document.getElementById('currencyTableBody');
+    if(!rows.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#9aa3b0;padding:20px;">データがありません</td></tr>';return;}
+    tb.innerHTML=rows.map(([c,v])=>{
+        const pC=v.pnl>0?'color:#0d9060;font-weight:500':v.pnl<0?'color:#c0392b;font-weight:500':'';
+        return `<tr><td style="font-weight:500;">${esc(c)}</td><td class="td-right td-muted">${v.cnt}</td><td class="td-right">${v.in.toFixed(2)}</td><td class="td-right">${v.out.toFixed(2)}</td><td class="td-right" style="${pC}">${v.pnl>=0?'+':''}${v.pnl.toFixed(2)}</td></tr>`;
+    }).join('');
+}
+
+// 通貨フォーマット（サマリー用）
+function fmtMoneySummary(usdVal, decimals=2) {
+    if (_currency==='JPY') return '¥'+Math.round(usdVal*_fxRate).toLocaleString('ja-JP');
+    return '$'+Number(usdVal).toFixed(decimals);
+}
+
+// =====================================================================
+// 取引の送信元/送信先 手動編集
+// =====================================================================
+let _txAddrState = {};
+
+function openTxAddrModal(txId, field, currentAddr, chain) {
+    const d=load();
+    _txAddrState = { txId, field, currentAddr, chain };
+
+    const isFrom = field==='from';
+    document.getElementById('txAddrModalTitle').textContent = isFrom ? '送信元を設定' : '送信先を設定';
+    document.getElementById('txAddrCurrent').textContent = currentAddr || '（未設定）';
+
+    // チェーンをデフォルト設定
+    const cs = document.getElementById('txAddrNewChain');
+    if(chain && chain!=='unknown') cs.value=chain;
+
+    // 登録済みウォレット一覧を更新
+    const sw = document.getElementById('txAddrSelectWallet');
+    sw.innerHTML = '<option value="">選択してください</option>' +
+        d.wallets.map(w=>`<option value="${esc(w.address)}">${esc(w.name)} (${esc(w.chain.toUpperCase())})</option>`).join('');
+
+    // ラベル欄に既存ラベルまたはdisplayNameをセット
+    const existingDN = field==='from' ? (d.transactions.find(t=>String(t.id).replace('.','_')===String(txId))?.fromDisplayName||'')
+                                      : (d.transactions.find(t=>String(t.id).replace('.','_')===String(txId))?.toDisplayName  ||'');
+    document.getElementById('txAddrLabel').value = getLabel(currentAddr) || existingDN || '';
+    document.getElementById('txAddrNewName').value = '';
+    // タブ3のアドレス欄：既知アドレスがあれば表示
+    document.getElementById('txAddrManualAddr').value = currentAddr || '';
+
+    // アドレス不明の場合はタブ3（ラベル/手動アドレス入力）をデフォルトに
+    switchTxAddrTab(currentAddr ? 1 : 3);
+    openModal('txAddrModal');
+}
+
+function switchTxAddrTab(n) {
+    [1,2,3].forEach(i=>{
+        document.getElementById('txAddrTab'+i).classList.toggle('active',i===n);
+        document.getElementById('txAddrPane'+i).style.display=i===n?'block':'none';
+    });
+}
+
+function txAddrSave() {
+    const {txId, field, currentAddr, chain} = _txAddrState;
+    const d=load();
+    // txIdは小数点を_に変換した文字列なので元に戻す
+    const tx = d.transactions.find(t => String(t.id).replace('.','_') === String(txId));
+    if (!tx) { alert('取引が見つかりません'); return; }
+
+    // どのタブがアクティブか判定
+    const activeTab = [1,2,3].find(i=>document.getElementById('txAddrTab'+i).classList.contains('active'));
+
+    if (activeTab===1) {
+        // 新規登録
+        const name  = document.getElementById('txAddrNewName').value.trim();
+        const chain2= document.getElementById('txAddrNewChain').value;
+        if (!name) { alert('ウォレット名を入力してください'); return; }
+        if (!currentAddr) { alert('アドレスが不明のため登録できません'); return; }
+        if (!d.wallets.find(w=>w.address===currentAddr.toLowerCase())) {
+            d.wallets.push({id:Date.now(),name,address:currentAddr.toLowerCase(),chain:chain2,balanceLabel:''});
+        }
+        // アドレスが空の場合は何もセットしない
+    } else if (activeTab===2) {
+        // 登録済みから選ぶ → 取引のfrom/toを選択ウォレットのアドレスに上書き
+        const selectedAddr = document.getElementById('txAddrSelectWallet').value;
+        if (!selectedAddr) { alert('ウォレットを選択してください'); return; }
+        tx[field] = selectedAddr;
+    } else {
+        // ラベルのみ（タブ3）
+        // アドレスとラベルの両方または片方を処理
+        const lbl        = document.getElementById('txAddrLabel').value.trim();
+        const manualAddr = document.getElementById('txAddrManualAddr').value.trim().toLowerCase();
+        const targetAddr = manualAddr || (currentAddr ? currentAddr.toLowerCase() : '');
+
+        if (!lbl && !targetAddr) {
+            alert('ラベル名を入力してください'); return;
+        }
+
+        if (lbl) {
+            if (targetAddr) {
+                // アドレスがある場合：アドレス帳に保存（同アドレスが他の取引に現れた時も反映）
+                const labels = loadLabels();
+                labels[targetAddr] = lbl;
+                saveLabels(labels);
+                // 取引のfrom/toも更新（アドレスが変わった場合）
+                if (targetAddr !== (currentAddr||'').toLowerCase()) {
+                    tx[field] = targetAddr;
+                }
+            } else {
+                // アドレス不明の場合：取引に表示名を直接セット（特殊プレフィックスで識別）
+                tx[field + 'DisplayName'] = lbl;
+            }
+        } else if (targetAddr && !lbl) {
+            // ラベル削除
+            const labels = loadLabels();
+            delete labels[targetAddr];
+            saveLabels(labels);
+            // アドレスが新しい場合は更新
+            if (targetAddr !== (currentAddr||'').toLowerCase()) {
+                tx[field] = targetAddr;
+            }
+        }
+    }
+
+    save(d);
+    // 手動編集したことを記録
+    const txForMark = d.transactions.find(t => String(t.id).replace('.','_') === String(txId));
+    if (txForMark && activeTab !== undefined) {
+        txForMark.source = 'manual';
+        save(d);
+    }
+    closeModal('txAddrModal');
+    showMsg('設定しました','ok');
+    renderTxTable();
+    renderWallets();
+}
+function fillTxFilters() {
+    const d=load();
+    const fw=document.getElementById('fWallet'); const prev=fw.value;
+    fw.innerHTML='<option value="">すべて</option>'+d.wallets.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
+    if(prev) fw.value=prev;
+    const fy=document.getElementById('fYear'); const prevY=fy.value;
+    const years=[...new Set(d.transactions.map(t=>new Date(t.timestamp).getFullYear()))].sort((a,b)=>b-a);
+    fy.innerHTML='<option value="">すべて</option>'+years.map(y=>`<option value="${y}">${y}年</option>`).join('');
+    if(prevY) fy.value=prevY;
+}
+
+function filteredTx() {
+    const d=load();
+    const fw=document.getElementById('fWallet')?.value||'';
+    const ft=document.getElementById('fType')?.value||'';
+    const fy=document.getElementById('fYear')?.value||'';
+    return d.transactions.filter(tx=>{
+        if(fw&&String(tx.walletId)!==fw) return false;
+        if(ft&&tx.type!==ft) return false;
+        if(fy&&String(new Date(tx.timestamp).getFullYear())!==fy) return false;
+        return true;
+    }).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+}
+
+function renderTxTable() {
+    fillTxFilters();
+    const d=load(); const txs=filteredTx();
+    document.getElementById('txCountBadge').textContent=txs.length;
+    document.getElementById('filterCount').textContent=`${txs.length}件`;
+    const tb=document.getElementById('txBody');
+    if(!txs.length){tb.innerHTML='<tr><td colspan="14" style="text-align:center;color:#9aa3b0;padding:28px;">取引履歴がありません</td></tr>';return;}
+    const tmap={send:'送金',swap:'交換',receive:'受取'};
+
+    tb.innerHTML=txs.map(tx=>{
+        const date=tx.timestamp?new Date(tx.timestamp).toLocaleString('ja-JP'):'-';
+        const fQ=(tx.feeQuantity!=null?tx.feeQuantity:tx.fee)||0;
+        const fV=tx.feeValue||0;
+        const pnl=tx.pnl||0;
+        const pS=pnl>0?'style="color:#0d9060;font-weight:500;"':pnl<0?'style="color:#c0392b;font-weight:500;"':'';
+        const hash=tx.hash||'';
+        const chain=tx.chain||'unknown';
+        const txId=tx.id;
+
+        // 手数料表示
+        const fStr=fQ>0
+            ?`${fQ.toFixed(5)}<br><span style="color:#9aa3b0;font-size:10px;">(${fmtMoneyStr(fV)})</span>`
+            :'-';
+
+        // 売却数量+評価額
+        const outQStr=tx.outQuantity
+            ?`${tx.outQuantity.toFixed(8)}<br><span style="color:#9aa3b0;font-size:10px;">(${fmtMoneyStr(tx.outValue)})</span>`
+            :'—';
+        // 取得数量+評価額
+        const inQStr=tx.inQuantity
+            ?`${tx.inQuantity.toFixed(8)}<br><span style="color:#9aa3b0;font-size:10px;">(${fmtMoneyStr(tx.inValue)})</span>`
+            :'—';
+
+        // 損益表示（通貨換算）
+        const pnlStr=pnl!==0
+            ?(pnl>=0?'+':'')+fmtMoneyStr(pnl)
+            :'—';
+
+        // TXハッシュ → エクスプローラーリンク
+        const explorerLink=hash?explorerUrlForHash(hash,chain):'';
+        const hashCell=hash
+            ?`<a href="${explorerLink}" target="_blank" class="td-mono" style="color:#1a56db;text-decoration:none;font-size:10px;" title="${esc(hash)}">${hash.slice(0,12)}…</a>`
+            :'—';
+
+        // 送信元/送信先（編集ボタン付き）
+        const fromDN = tx.fromDisplayName||'';
+        const toDN   = tx.toDisplayName  ||'';
+        const fromCell=addrLabelWithEdit(tx.from,d.wallets,chain,'from',txId,fromDN,tx.source);
+        const toCell  =addrLabelWithEdit(tx.to,  d.wallets,chain,'to',  txId,toDN,  tx.source);
+
+        return `<tr>
+            <td><span class="badge badge-${tx.type}">${tmap[tx.type]||tx.type}</span></td>
+            <td class="td-muted" style="font-size:11px;">${date}</td>
+            <td>${fromCell}</td>
+            <td>${toCell}</td>
+            <td class="td-right">${esc(tx.outCurrency||'—')}</td>
+            <td class="td-right td-mono">${outQStr}</td>
+            <td class="td-right" style="display:none;">${tx.outValue?(tx.outValue).toFixed(2):'—'}</td>
+            <td class="td-right">${esc(tx.inCurrency||'—')}</td>
+            <td class="td-right td-mono">${inQStr}</td>
+            <td class="td-right" style="display:none;">${tx.inValue?(tx.inValue).toFixed(2):'—'}</td>
+            <td class="td-right td-mono">${fStr}</td>
+            <td class="td-right" ${pS}>${pnlStr}</td>
+            <td><span class="badge-chain chain-${chain}" style="font-size:9px;padding:1px 6px;">${esc(tx.chain||'—')}</span></td>
+            <td>${hashCell}</td>
+        </tr>`;
+    }).join('');
+}
+
+// 通貨フォーマット（テーブル内表示用、nullは '—'）
+function fmtMoneyStr(usdVal) {
+    if (usdVal==null || usdVal===0) return '—';
+    if (_currency==='JPY') return '¥'+Math.round(usdVal*_fxRate).toLocaleString('ja-JP');
+    return '$'+Number(usdVal).toFixed(2);
+}
+
+// TXハッシュ用エクスプローラーURL
+function explorerUrlForHash(hash, chain) {
+    const map = {
+        ethereum:  `https://etherscan.io/tx/${hash}`,
+        polygon:   `https://polygonscan.com/tx/${hash}`,
+        arbitrum:  `https://arbiscan.io/tx/${hash}`,
+        optimism:  `https://optimistic.etherscan.io/tx/${hash}`,
+        base:      `https://basescan.org/tx/${hash}`,
+        bitcoin:   `https://mempool.space/tx/${hash}`,
+        tron:      `https://tronscan.org/#/transaction/${hash}`,
+    };
+    return map[chain] || `https://etherscan.io/tx/${hash}`;
+}
+
+// 送信元/送信先ラベル（編集ボタン付き）
+function addrLabelWithEdit(addr, wallets, chain, role, txId, displayName, source) {
+    const safeId = String(txId).replace('.','_');
+    // データソースバッジ
+    const srcBadge = source === 'manual'
+        ? `<span style="font-size:9px;background:#e8f5e9;color:#1b5e20;padding:1px 5px;border-radius:3px;margin-left:3px;">手動</span>`
+        : source === 'zerion'
+        ? `<span style="font-size:9px;background:#e8eeff;color:#1e3a8a;padding:1px 5px;border-radius:3px;margin-left:3px;">Zerion</span>`
+        : source === 'bitcoin'
+        ? `<span style="font-size:9px;background:#fff3e0;color:#9a5c00;padding:1px 5px;border-radius:3px;margin-left:3px;">BTC</span>`
+        : '';
+    const editBtn = `<span class="addr-edit-btn" onclick="openTxAddrModal('${safeId}','${role}','${esc(addr||'')}','${chain}')" title="送信${role==='from'?'元':'先'}を設定">
+        <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M7.5 1.5l2 2-6 6H1.5v-2l6-6z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+    </span>`;
+    // displayName（アドレス不明だが名前だけ設定済み）
+    if (!addr && displayName) {
+        return `<span class="addr-labeled" title="アドレス不明・手動設定名">${esc(displayName)}</span>${srcBadge}${editBtn}`;
+    }
+    if (!addr) return `<span class="addr-unknown">—</span>${editBtn}`;
+    const n  =resolveName(addr.toLowerCase(), wallets);
+    const lbl=getLabel(addr);
+    const cl =chain||'unknown';
+    const onClick=`showAddrPop('${addr.replace(/'/g,"\\'")}','${cl}','${role}',event)`;
+    if (n)   return `<span class="addr-known"   title="${esc(addr)}" style="cursor:pointer;" onclick="${onClick}">${esc(n)}</span>${srcBadge}${editBtn}`;
+    if (lbl) return `<span class="addr-labeled" title="${esc(addr)}" onclick="${onClick}">${esc(lbl)}</span>${srcBadge}${editBtn}`;
+    return `<span class="addr-unknown" title="${esc(addr)}" style="cursor:pointer;" onclick="${onClick}">${addr.slice(0,10)}…<svg width='8' height='8' viewBox='0 0 9 9' fill='none' style='vertical-align:middle;margin-left:2px;'><circle cx='4.5' cy='4.5' r='4' stroke='#9aa3b0' stroke-width='1'/><path d='M4.5 3v1.8M4.5 6.2v.3' stroke='#9aa3b0' stroke-width='1' stroke-linecap='round'/></svg></span>${srcBadge}${editBtn}`;
+}
+
+// =====================================================================
+// CSV
+// =====================================================================
+function exportWalletCSV() {
+    const d=load(); const BOM='\uFEFF';
+    dlCSV(BOM+'ウォレット名,アドレス,チェーン\n'+d.wallets.map(w=>`"${w.name}","${w.address}","${w.chain}"`).join('\n'),`wallets-${tod()}.csv`);
+}
+
+function exportTxCSV() {
+    const d=load(); const BOM='\uFEFF';
+    const txs=[...filteredTx()].reverse();
+    let csv='日時,種別,送信元アドレス,送信元名,送信先アドレス,送信先名,売却通貨,売却数量,売却評価額(USD),取得通貨,取得数量,取得評価額(USD),手数料数量,手数料(USD),損益(USD),チェーン,TXハッシュ\n';
+    csv+=txs.map(tx=>{
+        const date=tx.timestamp?new Date(tx.timestamp).toLocaleString('ja-JP'):'';
+        const type={send:'送金',swap:'交換',receive:'受取'}[tx.type]||tx.type;
+        const fN=resolveName(tx.from,d.wallets)||''; const tN=resolveName(tx.to,d.wallets)||'';
+        const fQ=(tx.feeQuantity!=null?tx.feeQuantity:tx.fee)||0; const fV=tx.feeValue||0;
+        return [`"${date}"`,type,`"${tx.from||''}"`,`"${fN}"`,`"${tx.to||''}"`,`"${tN}"`,
+                tx.outCurrency||'',(tx.outQuantity||0).toFixed(8),(tx.outValue||0).toFixed(2),
+                tx.inCurrency||'',(tx.inQuantity||0).toFixed(8),(tx.inValue||0).toFixed(2),
+                fQ.toFixed(8),fV.toFixed(8),(tx.pnl||0).toFixed(4),tx.chain||'',tx.hash||''].join(',');
+    }).join('\n');
+    const years=[...new Set(txs.map(t=>new Date(t.timestamp).getFullYear()))].sort();
+    csv+='\n\n年間集計\n年,実現損益(USD),手数料合計(USD),取得額合計(USD),売却額合計(USD)\n';
+    years.forEach(yr=>{
+        const yt=txs.filter(t=>new Date(t.timestamp).getFullYear()===yr);
+        const pnl=yt.filter(t=>t.type==='swap').reduce((s,t)=>s+(t.pnl||0),0);
+        const fee=yt.reduce((s,t)=>s+(t.feeValue||0),0);
+        csv+=`${yr},${pnl.toFixed(2)},${fee.toFixed(4)},${yt.reduce((s,t)=>s+(t.inValue||0),0).toFixed(2)},${yt.reduce((s,t)=>s+(t.outValue||0),0).toFixed(2)}\n`;
+    });
+    dlCSV(BOM+csv,`transactions-${tod()}.csv`);
+}
+
+function dlCSV(c,fn){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([c],{type:'text/csv;charset=utf-8;'})); a.download=fn; a.click(); }
+function triggerImport(){ document.getElementById('csvFile').value=''; document.getElementById('csvFile').click(); }
+
+function handleCSVImport(ev) {
+    const file=ev.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+        const rows=e.target.result.trim().split('\n').map(r=>r.split(',').map(v=>v.trim().replace(/^"|"$/g,'')));
+        if(rows.length<2){showMsg('CSVの形式が無効です','err');return;}
+        const d=load(); const news=[],dups=[];
+        for(let i=1;i<rows.length;i++){
+            const[name,addr,chain]=rows[i];
+            if(!name||!addr||!chain||rows[i].length>5) continue;
+            const al=addr.toLowerCase();
+            const ex=d.wallets.find(w=>w.address===al);
+            if(ex) dups.push({name,address:al,chain,existing:ex,action:'skip'});
+            else news.push({id:Date.now()+Math.random(),name,address:al,chain,balanceLabel:''});
+        }
+        if(dups.length) openDupModal(dups,news,d);
+        else finalImport([],news,d);
+    };
+    reader.readAsText(file);
+}
+
+let _pend=null;
+function openDupModal(dups,news,d){
+    _pend={dups,news,d};
+    document.getElementById('dupList').innerHTML=dups.map((dup,i)=>`
+        <div class="dup-item mode-skip" id="di${i}">
+            <div class="dup-top">
+                <div class="dup-name">【${i+1}】${esc(dup.name)}</div>
+                <div class="dup-btns">
+                    <button class="btn btn-outline btn-sm" style="color:#9a5c00;border-color:#fcd34d;" onclick="setDup(${i},'over')">上書き</button>
+                    <button class="btn btn-outline btn-sm" onclick="setDup(${i},'skip')">スキップ</button>
+                </div>
+            </div>
+            <div style="font-size:11px;color:#9aa3b0;margin-top:4px;">${esc(dup.address.slice(0,22))}… (${esc(dup.chain)}) → 既存: <strong>${esc(dup.existing.name)}</strong></div>
+            <div class="dup-status" id="ds${i}">→ スキップ</div>
+        </div>`).join('');
+    openModal('dupModal');
+}
+function setDup(i,action){
+    _pend.dups[i].action=action;
+    document.getElementById('di'+i).className='dup-item mode-'+(action==='over'?'over':'skip');
+    const s=document.getElementById('ds'+i); s.textContent=action==='over'?'→ 上書き':'→ スキップ'; s.className='dup-status '+(action==='over'?'over':'');
+}
+function dupAll(a){_pend.dups.forEach((_,i)=>setDup(i,a));}
+function applyImport(){ const{dups,news,d}=_pend; finalImport(dups.filter(x=>x.action==='over'),news,d); closeModal('dupModal'); }
+function finalImport(toOver,news,d){
+    toOver.forEach(dup=>{ const idx=d.wallets.findIndex(w=>w.address===dup.address); if(idx>=0)d.wallets[idx]={...d.wallets[idx],name:dup.name,chain:dup.chain}; });
+    d.wallets.push(...news); save(d);
+    const p=[]; if(news.length)p.push(`${news.length}件追加`); if(toOver.length)p.push(`${toOver.length}件上書き`);
+    showMsg(`インポート完了: ${p.join('、')||'変更なし'}`,'ok');
+    renderWallets(); news.forEach(w=>fetchBalance(w.id));
+}
+
+// =====================================================================
+// 設定
+// =====================================================================
+function toggleApiVis(){ const i=document.getElementById('apiKeyInput'); const b=document.getElementById('apiKeyToggle'); if(i.type==='password'){i.type='text';b.textContent='隠す';}else{i.type='password';b.textContent='表示';} }
+function saveApiKey(){ const key=document.getElementById('apiKeyInput').value.trim(); const s=loadS(); s.zerionApiKey=key; saveS(s); updateApiBadge(); setApiResult(key?'保存しました':'削除しました',key?'ok':'warn'); }
+function clearApiKey(){ document.getElementById('apiKeyInput').value=''; const s=loadS(); delete s.zerionApiKey; saveS(s); updateApiBadge(); setApiResult('削除しました','warn'); }
+async function testApiKey(){
+    const key=document.getElementById('apiKeyInput').value.trim();
+    if(!key){setApiResult('APIキーを入力してください','err');return;}
+    setApiResult('接続テスト中...','info');
+    const s=loadS(); const old=s.zerionApiKey; s.zerionApiKey=key; saveS(s);
+    try {
+        const j=await zerionFetch('wallets/0xd8da6bf26964af9d7eed9e03e53415d37aa96045/positions/?currency=usd&page[size]=1');
+        if(j.data!==undefined) setApiResult('接続成功！Zerion APIと正常に通信できました','ok');
+        else if(j.errors) setApiResult('エラー: '+(j.errors[0]?.detail||'不明なエラー'),'err');
+    } catch(e){ setApiResult('接続失敗: '+e.message,'err'); s.zerionApiKey=old; saveS(s); }
+    updateApiBadge();
+}
+function setApiResult(msg,type){ const el=document.getElementById('apiTestResult'); const c={ok:'#0d9060',err:'#c0392b',warn:'#9a5c00',info:'#1a56db'}; el.style.color=c[type]||'#5a6478'; el.textContent=msg; }
+function updateApiBadge(){
+    const key=getApiKey(); const b=document.getElementById('apiBadge');
+    if(key){b.textContent='API設定済'; b.className='api-badge ok';}
+    else{b.textContent='APIキー未設定'; b.className='api-badge ng';}
+}
+function exportAllJSON(){
+    const d=load(); const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([JSON.stringify({version:APP_VER,exported:new Date().toISOString(),...d},null,2)],{type:'application/json'}));
+    a.download=`cryptovault-backup-${tod()}.json`; a.click();
+}
+function importAllJSON(){ document.getElementById('jsonImportFile').value=''; document.getElementById('jsonImportFile').click(); }
+function doImportJSON(ev){
+    const file=ev.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=e=>{
+        try {
+            const j=JSON.parse(e.target.result);
+            if(!j.wallets||!j.transactions) throw new Error('フォーマットが無効です');
+            if(!confirm(`${j.wallets.length}件のウォレットと${j.transactions.length}件の取引をインポートします。現在のデータは上書きされます。`)) return;
+            save({wallets:j.wallets,transactions:j.transactions});
+            openModal('settingsModal'); renderWallets(); setApiResult('JSONインポート完了','ok');
+        } catch(err){ setApiResult('エラー: '+err.message,'err'); }
+    };
+    reader.readAsText(file);
+}
+
+// =====================================================================
+// ユーティリティ
+// =====================================================================
+function copyT(t){ navigator.clipboard.writeText(t).then(()=>showMsg('TXハッシュをコピーしました','ok')); }
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function tod(){ return new Date().toISOString().split('T')[0]; }
+let _msgT=null;
+function showMsg(text,type){
+    const el=document.getElementById('msgW'); if(!el)return;
+    el.innerHTML=`<div class="msg-${type==='ok'?'ok':'err'}">${text}</div>`;
+    clearTimeout(_msgT);
+    if(type==='ok') _msgT=setTimeout(()=>{el.innerHTML='';},4000);
+}
+
+// =====================================================================
+// 初期化
+// =====================================================================
+window.addEventListener('load', async ()=>{
+    // 為替レート取得
+    await fetchFxRate();
+    // 通貨ラベル初期化
+    document.getElementById('currencyLabel').textContent = _currency === 'JPY' ? '¥ JPY' : '$ USD';
+    updateApiBadge();
+    renderWallets();
+    renderSummary();
+});
+</script>
+</body>
+</html>

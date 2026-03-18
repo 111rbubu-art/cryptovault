@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.12</span>
+    <span class="ver-badge" id="verBadge">v5.13</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -512,7 +512,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.12</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.13</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -723,7 +723,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.12';
+const APP_VER  = '5.13';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -1578,25 +1578,38 @@ function renderTxTable() {
     document.getElementById('txCountBadge').textContent=txs.length;
     document.getElementById('filterCount').textContent=`${txs.length}件`;
     const tb=document.getElementById('txBody');
-    if(!txs.length){tb.innerHTML=`<tr><td colspan="16" style="text-align:center;color:#9aa3b0;padding:28px;">取引履歴がありません</td></tr>`;return;}
+    if(!txs.length){tb.innerHTML=`<tr><td colspan="14" style="text-align:center;color:#9aa3b0;padding:28px;">取引履歴がありません</td></tr>`;return;}
     const tmap={send:'送金',swap:'交換',receive:'受取'};
+    if (!window._txGroupCollapsed) window._txGroupCollapsed = {};
 
-    // グループ別に整理
-    const grouped = {}; // groupId -> [tx]
-    const ungrouped = [];
+    // ① グループをまとめる：groupId→代表タイムスタンプ（最新）
+    const groupMap = {}; // groupId -> [tx, ...]
+    const renderedGroups = new Set();
     txs.forEach(tx => {
         if (tx.groupId) {
-            if (!grouped[tx.groupId]) grouped[tx.groupId] = [];
-            grouped[tx.groupId].push(tx);
-        } else {
-            ungrouped.push(tx);
+            if (!groupMap[tx.groupId]) groupMap[tx.groupId] = [];
+            groupMap[tx.groupId].push(tx);
         }
     });
 
-    // 折りたたみ状態管理（セッション）
-    if (!window._txGroupCollapsed) window._txGroupCollapsed = {};
+    // ② 表示エントリを日時順に構築
+    // 各グループは代表行1件（最新日時）として扱う
+    const entries = []; // {type:'tx'|'group', data, sortTs}
+    txs.forEach(tx => {
+        if (!tx.groupId) {
+            entries.push({type:'tx', data:tx, sortTs: new Date(tx.timestamp||0).getTime()});
+        } else if (!renderedGroups.has(tx.groupId)) {
+            renderedGroups.add(tx.groupId);
+            const gTxs = groupMap[tx.groupId];
+            const latestTs = Math.max(...gTxs.map(t=>new Date(t.timestamp||0).getTime()));
+            entries.push({type:'group', gid:tx.groupId, data:gTxs, sortTs:latestTs});
+        }
+    });
+    // 日時降順ソート
+    entries.sort((a,b) => b.sortTs - a.sortTs);
 
-    function renderTxRow(tx, inGroup=false, isFirst=false, groupId=null, groupCount=0) {
+    // ③ 通常行のレンダリング関数
+    function renderTxRow(tx, inGroup=false) {
         const safeId = String(tx.id).replace('.','_');
         const date=tx.timestamp?new Date(tx.timestamp).toLocaleString('ja-JP'):'-';
         const fQ=(tx.feeQuantity!=null?tx.feeQuantity:tx.fee)||0;
@@ -1605,40 +1618,30 @@ function renderTxTable() {
         const pS=pnl>0?'style="color:#0d9060;font-weight:500;"':pnl<0?'style="color:#c0392b;font-weight:500;"':'';
         const hash=tx.hash||'';
         const chain=tx.chain||'unknown';
-        const txId=tx.id;
-
-        const fStr=fQ>0
-            ?`${fQ.toFixed(5)}<br><span style="color:#9aa3b0;font-size:10px;">(${fmtMoneyStr(fV)})</span>`
-            :'-';
-        const outQStr=tx.outQuantity
-            ?`${tx.outQuantity.toFixed(8)}<br><span style="color:#9aa3b0;font-size:10px;">(${fmtMoneyStr(tx.outValue)})</span>`:'—';
-        const inQStr=tx.inQuantity
-            ?`${tx.inQuantity.toFixed(8)}<br><span style="color:#9aa3b0;font-size:10px;">(${fmtMoneyStr(tx.inValue)})</span>`:'—';
+        const fStr=fQ>0?`${fQ.toFixed(5)}<br><span style="color:#9aa3b0;font-size:10px;">(${fmtMoneyStr(fV)})</span>`:'-';
+        const outQStr=tx.outQuantity?`${tx.outQuantity.toFixed(8)}<br><span style="color:#9aa3b0;font-size:10px;">(${fmtMoneyStr(tx.outValue)})</span>`:'—';
+        const inQStr=tx.inQuantity?`${tx.inQuantity.toFixed(8)}<br><span style="color:#9aa3b0;font-size:10px;">(${fmtMoneyStr(tx.inValue)})</span>`:'—';
         const pnlStr=pnl!==0?(pnl>=0?'+':'')+fmtMoneyStr(pnl):'—';
-
         const explorerLink=hash?explorerUrlForHash(hash,chain):'';
-        const hashCell=hash
-            ?`<a href="${explorerLink}" target="_blank" class="td-mono" style="color:#1a56db;text-decoration:none;font-size:10px;" title="${esc(hash)}">${hash.slice(0,12)}…</a>`:'—';
-
+        const hashCell=hash?`<a href="${explorerLink}" target="_blank" class="td-mono" style="color:#1a56db;text-decoration:none;font-size:10px;" title="${esc(hash)}">${hash.slice(0,12)}…</a>`:'—';
         const fromDN=tx.fromDisplayName||'';
         const toDN=tx.toDisplayName||'';
-        const fromCell=addrLabelWithEdit(tx.from,d.wallets,chain,'from',txId,fromDN,tx.source);
-        const toCell=addrLabelWithEdit(tx.to,d.wallets,chain,'to',txId,toDN,tx.source);
-
-        const rowBg = inGroup ? 'background:#f8faff;' : '';
-
-        return `<tr style="${rowBg}" data-txid="${safeId}">
+        const fromCell=addrLabelWithEdit(tx.from,d.wallets,chain,'from',tx.id,fromDN,tx.source);
+        const toCell=addrLabelWithEdit(tx.to,d.wallets,chain,'to',tx.id,toDN,tx.source);
+        const rowStyle=inGroup?'background:#f0f6ff;':'';
+        const indent=inGroup?'padding-left:20px;border-left:3px solid #93c5fd;':'';
+        return `<tr style="${rowStyle}" data-txid="${safeId}">
             <td style="padding:4px 6px;text-align:center;">
                 <input type="checkbox" class="tx-check" data-id="${safeId}" onchange="onTxCheckChange()" style="cursor:pointer;">
             </td>
-            <td><span class="badge badge-${tx.type}">${tmap[tx.type]||tx.type}</span></td>
+            <td style="${indent}"><span class="badge badge-${tx.type}">${tmap[tx.type]||tx.type}</span></td>
             <td class="td-muted" style="font-size:11px;">${date}</td>
             <td>${fromCell}</td>
             <td>${toCell}</td>
-            <td class="td-right" style="background:#fffafa;">${esc(tx.outCurrency||'—')}</td>
-            <td class="td-right td-mono" style="background:#fffafa;">${outQStr}</td>
-            <td class="td-right" style="background:#f7fffa;">${esc(tx.inCurrency||'—')}</td>
-            <td class="td-right td-mono" style="background:#f7fffa;">${inQStr}</td>
+            <td class="td-right" style="background:${inGroup?'#f5f0ff':'#fffafa'};">${esc(tx.outCurrency||'—')}</td>
+            <td class="td-right td-mono" style="background:${inGroup?'#f5f0ff':'#fffafa'};">${outQStr}</td>
+            <td class="td-right" style="background:${inGroup?'#f0fff5':'#f7fffa'};">${esc(tx.inCurrency||'—')}</td>
+            <td class="td-right td-mono" style="background:${inGroup?'#f0fff5':'#f7fffa'};">${inQStr}</td>
             <td class="td-right td-mono">${fStr}</td>
             <td class="td-right" ${pS}>${pnlStr}</td>
             <td><span class="badge-chain chain-${chain}" style="font-size:9px;padding:1px 6px;">${esc(tx.chain||'—')}</span></td>
@@ -1646,47 +1649,63 @@ function renderTxTable() {
         </tr>`;
     }
 
-    let html = '';
+    // ④ グループ代表行（折りたたみ行）のレンダリング
+    function renderGroupRow(gid, gTxs) {
+        const collapsed = window._txGroupCollapsed[gid] !== false; // デフォルト折りたたみ
+        const latestTx = gTxs.slice().sort((a,b)=>new Date(b.timestamp||0)-new Date(a.timestamp||0))[0];
+        const latestDate = latestTx?.timestamp ? new Date(latestTx.timestamp).toLocaleString('ja-JP') : '-';
+        const types = [...new Set(gTxs.map(t=>tmap[t.type]||t.type))].join('・');
+        const chains = [...new Set(gTxs.map(t=>t.chain||'—'))].join('・');
+        // 送信元・送信先のまとめ
+        const froms = [...new Set(gTxs.map(t=>{
+            if(t.fromDisplayName) return t.fromDisplayName;
+            return resolveName(t.from, d.wallets) || (t.from?t.from.slice(0,8)+'…':'—');
+        }))].join(' → ');
+        const tos = [...new Set(gTxs.map(t=>{
+            if(t.toDisplayName) return t.toDisplayName;
+            return resolveName(t.to, d.wallets) || (t.to?t.to.slice(0,8)+'…':'—');
+        }))].join(' → ');
 
-    // グループ化された取引（グループごとに折りたたみヘッダー付き）
-    Object.entries(grouped).forEach(([gid, gTxs]) => {
-        const collapsed = window._txGroupCollapsed[gid];
-        const dates = gTxs.map(t=>new Date(t.timestamp||0)).sort((a,b)=>b-a);
-        const latestDate = dates[0]?.toLocaleDateString('ja-JP')||'';
-        const types = [...new Set(gTxs.map(t=>tmap[t.type]||t.type))].join(' + ');
+        const expandIcon = collapsed ? '▶' : '▼';
+        const childRows = collapsed ? '' : gTxs
+            .slice().sort((a,b)=>new Date(b.timestamp||0)-new Date(a.timestamp||0))
+            .map(tx=>renderTxRow(tx, true)).join('');
 
-        html += `<tr style="background:#eff6ff;border-top:2px solid #3b82f6;" class="group-header-row" data-gid="${gid}">
+        return `<tr style="background:#dbeafe;border-left:4px solid #2563eb;" class="group-summary-row" data-gid="${gid}">
             <td style="padding:4px 6px;text-align:center;">
                 <input type="checkbox" class="tx-check-group" data-gid="${gid}" onchange="onGroupCheckChange('${gid}',this.checked)" style="cursor:pointer;" title="グループ全体を選択">
             </td>
-            <td colspan="11" style="padding:6px 10px;">
-                <span onclick="toggleGroupCollapse('${gid}')" style="cursor:pointer;user-select:none;">
-                    <span style="font-size:13px;margin-right:4px;">${collapsed?'▶':'▼'}</span>
-                    <span style="font-weight:600;color:#1e40af;">🔗 グループ（${gTxs.length}件）</span>
-                    <span style="font-size:11px;color:#6b7280;margin-left:8px;">${types} · ${latestDate}</span>
-                </span>
+            <td>
+                <button onclick="toggleGroupCollapse('${gid}')" class="btn btn-sm"
+                    style="background:none;border:1px solid #93c5fd;color:#1e40af;padding:2px 7px;font-size:12px;font-weight:700;cursor:pointer;"
+                    title="${collapsed?'展開':'折りたたむ'}">${expandIcon}</button>
+            </td>
+            <td class="td-muted" style="font-size:11px;">${latestDate}</td>
+            <td style="color:#1e40af;font-size:12px;">${esc(froms)}</td>
+            <td style="color:#1e40af;font-size:12px;">${esc(tos)}</td>
+            <td colspan="4" style="color:#374151;font-size:11px;padding:4px 8px;">
+                <span style="font-weight:600;">🔗 グループ ${gTxs.length}件</span>
+                <span style="margin-left:8px;color:#6b7280;">${types}</span>
+                <span style="margin-left:8px;color:#6b7280;">${chains}</span>
+            </td>
+            <td colspan="2"></td>
+            <td>
                 <button class="btn btn-sm" onclick="ungroupTxGroup('${gid}')"
-                    style="margin-left:12px;padding:2px 8px;font-size:11px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;">
-                    🔓 グループ解除
+                    style="padding:2px 8px;font-size:10px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;white-space:nowrap;">
+                    🔓 解除
                 </button>
             </td>
             <td></td>
-        </tr>`;
+        </tr>${childRows}`;
+    }
 
-        if (!collapsed) {
-            gTxs.forEach((tx, i) => {
-                html += renderTxRow(tx, true, i===0, gid, gTxs.length);
-            });
-        }
-    });
+    // ⑤ 全エントリを日時順に描画
+    tb.innerHTML = entries.map(entry =>
+        entry.type === 'group'
+            ? renderGroupRow(entry.gid, entry.data)
+            : renderTxRow(entry.data)
+    ).join('');
 
-    // グループ化されていない取引
-    ungrouped.forEach(tx => {
-        html += renderTxRow(tx, false);
-    });
-
-    tb.innerHTML = html;
-    // チェックボックス状態を更新
     updateGroupToolbar();
 }
 
@@ -1780,7 +1799,9 @@ function ungroupTxGroup(gid) {
 
 function toggleGroupCollapse(gid) {
     if (!window._txGroupCollapsed) window._txGroupCollapsed = {};
-    window._txGroupCollapsed[gid] = !window._txGroupCollapsed[gid];
+    // デフォルトはtrue（折りたたみ）なので、undefinedの場合はtrueとみなしてfalseに切り替え
+    const current = window._txGroupCollapsed[gid] !== false; // undefined or true → collapsed
+    window._txGroupCollapsed[gid] = !current;
     renderTxTable();
 }
 

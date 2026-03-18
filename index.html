@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.19</span>
+    <span class="ver-badge" id="verBadge">v5.20</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -521,7 +521,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.19</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.20</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -732,7 +732,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.19';
+const APP_VER  = '5.20';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -1719,7 +1719,13 @@ function renderTxTable() {
     // ③ 通常行のレンダリング関数
     function renderTxRow(tx, inGroup=false) {
         const safeId = String(tx.id).replace('.','_');
-        const date=tx.timestamp?new Date(tx.timestamp).toLocaleString('ja-JP'):'-';
+        // 日付と時刻を2段表示
+        const dateCell = tx.timestamp ? (() => {
+            const dt = new Date(tx.timestamp);
+            const datePart = dt.toLocaleDateString('ja-JP', {year:'numeric',month:'2-digit',day:'2-digit'});
+            const timePart = dt.toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            return `<span style="font-size:11px;font-weight:600;color:#374151;display:block;white-space:nowrap;">${datePart}</span><span style="font-size:10px;color:#9aa3b0;display:block;white-space:nowrap;">${timePart}</span>`;
+        })() : '<span style="color:#9aa3b0;">-</span>';
         const fQ=(tx.feeQuantity!=null?tx.feeQuantity:tx.fee)||0;
         const fV=tx.feeValue||0;
         const pnl=tx.pnl||0;
@@ -1743,7 +1749,7 @@ function renderTxTable() {
                 <input type="checkbox" class="tx-check" data-id="${safeId}" onchange="onTxCheckChange()" style="cursor:pointer;">
             </td>
             <td style="${indent}"><span class="badge badge-${tx.type}">${tmap[tx.type]||tx.type}</span></td>
-            <td class="td-muted" style="font-size:11px;">${date}</td>
+            <td style="padding:5px 8px;line-height:1.3;">${dateCell}</td>
             <td>${fromCell}</td>
             <td>${toCell}</td>
             <td class="td-right" style="background:${inGroup?'#f5f0ff':'#fffafa'};">${esc(tx.outCurrency||'—')}</td>
@@ -1762,7 +1768,12 @@ function renderTxTable() {
         const collapsed = window._txGroupCollapsed[gid] !== false;
         const sorted = gTxs.slice().sort((a,b)=>new Date(b.timestamp||0)-new Date(a.timestamp||0));
         const latestTx = sorted[0];
-        const latestDate = latestTx?.timestamp ? new Date(latestTx.timestamp).toLocaleString('ja-JP') : '-';
+        const latestDate = latestTx?.timestamp ? (() => {
+            const dt = new Date(latestTx.timestamp);
+            const datePart = dt.toLocaleDateString('ja-JP', {year:'numeric',month:'2-digit',day:'2-digit'});
+            const timePart = dt.toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            return `<span style="font-size:11px;font-weight:600;color:#1e40af;display:block;">${datePart}</span><span style="font-size:10px;color:#93c5fd;display:block;">${timePart}</span>`;
+        })() : '-';
 
         // 送金側（send）と受取側（receive）を分ける
         const sendTx  = gTxs.find(t=>t.type==='send')   || gTxs.find(t=>t.outCurrency);
@@ -1820,7 +1831,7 @@ function renderTxTable() {
                     title="${collapsed?'展開':'折りたたむ'}">${expandIcon}</button>
                 <span style="font-size:9px;background:#2563eb;color:#fff;padding:1px 5px;border-radius:3px;">🔗${gTxs.length}件</span>
             </td>
-            <td class="td-muted" style="font-size:11px;">${latestDate}</td>
+            <td style="padding:5px 8px;line-height:1.3;">${latestDate}</td>
             <td style="color:#1e40af;font-size:12px;">${esc(fromName)}</td>
             <td style="color:#1e40af;font-size:12px;">${esc(toName)}</td>
             <td class="td-right" style="background:#fff0f0;">${esc(outCur)}</td>

@@ -1584,9 +1584,10 @@ async function lookupTxAddr(safeId, role) {
         const idx = d.transactions.findIndex(t => String(t.id).replace('.','_') === safeId);
         if (idx >= 0) {
             d.transactions[idx][role === 'to' ? 'to' : 'from'] = foundAddr.toLowerCase();
-            // fieldごとにsourceを記録（手動設定）
-            if (role === 'to') d.transactions[idx].toSource = 'manual';
-            else d.transactions[idx].fromSource = 'manual';
+            // APIで自動取得したのでsourceはzerion/bitcoinに設定（手動ではない）
+            const autoSrc = d.transactions[idx].chain === 'bitcoin' ? 'bitcoin' : 'zerion';
+            if (role === 'to') d.transactions[idx].toSource = autoSrc;
+            else d.transactions[idx].fromSource = autoSrc;
             save(d);
             showMsg(`${role==='to'?'送金先':'送信元'}を設定しました`, 'ok');
             renderTxTable();
@@ -2069,11 +2070,16 @@ function addrLabelWithEdit(addr, wallets, chain, role, txId, displayName, source
     </span>`;
     // displayName（アドレス不明だが名前だけ設定済み）
     if (!addr && displayName) {
-        return `<span class="addr-labeled" title="アドレス不明・手動設定名">${esc(displayName)}</span>${srcBadge}${editBtn}`;
+        // displayNameがあってもhashがあれば🔍ボタンを表示（削除後に取得できるように）
+        const lookupBtn = `<span onclick="lookupTxAddr('${safeId}','${role}')" title="APIでアドレスを検索して登録"
+            style="cursor:pointer;font-size:10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;
+            border-radius:4px;padding:1px 6px;margin-left:3px;white-space:nowrap;">🔍 取得</span>`;
+        return `<span class="addr-labeled" title="アドレス不明・手動設定名">${esc(displayName)}</span>${srcBadge}${lookupBtn}${editBtn}`;
     }
     if (!addr) {
-        // Zerionソースかつアドレス空欄 → 🔍ボタンを表示
-        const lookupBtn = source === 'zerion' || source === 'bitcoin'
+        // hashがある取引はsource問わず🔍ボタンを表示（sourceがmanualに上書きされていても復活）
+        const canLookup = source === 'zerion' || source === 'bitcoin' || source === 'manual';
+        const lookupBtn = canLookup
             ? `<span onclick="lookupTxAddr('${safeId}','${role}')" title="APIでアドレスを検索して登録"
                 style="cursor:pointer;font-size:10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;
                 border-radius:4px;padding:1px 6px;margin-left:3px;white-space:nowrap;">🔍 取得</span>`
@@ -2259,14 +2265,16 @@ function repairUnknownChains() {
                 changed = true;
             }
         }
-        // source='manual' の古いデータ：zerion/bitcoinが本来のソースならsourceを戻す
-        // 送信元または送信先が登録ウォレットと一致する場合は自動取得データ
+        // source='manual' かつ fromSource/toSource 未設定の古いデータを修復
+        // → walletIdからオリジナルソースを推定し、fromSource/toSourceを個別に設定
         if (tx.source === 'manual' && !tx.fromSource && !tx.toSource) {
-            // hashがあればzerion/bitcoinが元ソースの可能性
-            // walletのchainでソースを推定してsourceを修正
             const wallet = d.wallets.find(w => w.id === tx.walletId);
             if (wallet) {
-                tx.source = wallet.chain === 'bitcoin' ? 'bitcoin' : 'zerion';
+                const origSrc = wallet.chain === 'bitcoin' ? 'bitcoin' : 'zerion';
+                // fromとtoそれぞれについて、自分のウォレットアドレスと一致する側は自動取得
+                // 一致しない側（空欄や外部アドレス）も自動取得データとして扱う
+                // source自体をorigSrcに戻し、どちらも手動ではない状態にする
+                tx.source = origSrc;
                 changed = true;
             }
         }

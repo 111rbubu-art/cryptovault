@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.21</span>
+    <span class="ver-badge" id="verBadge">v5.22</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -521,7 +521,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.21</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.22</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -732,7 +732,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.21';
+const APP_VER  = '5.22';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -1584,6 +1584,9 @@ async function lookupTxAddr(safeId, role) {
         const idx = d.transactions.findIndex(t => String(t.id).replace('.','_') === safeId);
         if (idx >= 0) {
             d.transactions[idx][role === 'to' ? 'to' : 'from'] = foundAddr.toLowerCase();
+            // fieldごとにsourceを記録（手動設定）
+            if (role === 'to') d.transactions[idx].toSource = 'manual';
+            else d.transactions[idx].fromSource = 'manual';
             save(d);
             showMsg(`${role==='to'?'送金先':'送信元'}を設定しました`, 'ok');
             renderTxTable();
@@ -1706,10 +1709,11 @@ function txAddrSave() {
     }
 
     save(d);
-    // 手動編集したことを記録
+    // 手動編集したことをfieldごとに記録（fromSource / toSource）
     const txForMark = d.transactions.find(t => String(t.id).replace('.','_') === String(txId));
     if (txForMark && activeTab !== undefined) {
-        txForMark.source = 'manual';
+        if (field === 'from') txForMark.fromSource = 'manual';
+        else if (field === 'to') txForMark.toSource = 'manual';
         save(d);
     }
     closeModal('txAddrModal');
@@ -1801,8 +1805,11 @@ function renderTxTable() {
         const hashCell=hash?`<a href="${explorerLink}" target="_blank" class="td-mono" style="color:#1a56db;text-decoration:none;font-size:10px;" title="${esc(hash)}">${hash.slice(0,12)}…</a>`:'—';
         const fromDN=tx.fromDisplayName||'';
         const toDN=tx.toDisplayName||'';
-        const fromCell=addrLabelWithEdit(tx.from,d.wallets,chain,'from',tx.id,fromDN,tx.source);
-        const toCell=addrLabelWithEdit(tx.to,d.wallets,chain,'to',tx.id,toDN,tx.source);
+        // fieldごとのsource：手動編集された側はmanual、それ以外は取引全体のsource
+        const fromSrc = tx.fromSource || tx.source;
+        const toSrc   = tx.toSource   || tx.source;
+        const fromCell=addrLabelWithEdit(tx.from,d.wallets,chain,'from',tx.id,fromDN,fromSrc);
+        const toCell  =addrLabelWithEdit(tx.to,  d.wallets,chain,'to',  tx.id,toDN,  toSrc);
         const rowStyle=inGroup?'background:#f0f6ff;':'';
         const indent=inGroup?'padding-left:20px;border-left:3px solid #93c5fd;':'';
         return `<tr style="${rowStyle}" data-txid="${safeId}">
@@ -2048,12 +2055,13 @@ function explorerUrlForHash(hash, chain) {
 // 送信元/送信先ラベル（編集ボタン付き）
 function addrLabelWithEdit(addr, wallets, chain, role, txId, displayName, source) {
     const safeId = String(txId).replace('.','_');
-    // データソースバッジ
-    const srcBadge = source === 'manual'
+    // fieldごとのsourceを優先（fromSource/toSource）、なければtx全体のsource
+    const fieldSource = source; // 呼び出し元でroleに応じて渡す
+    const srcBadge = fieldSource === 'manual'
         ? `<span style="font-size:9px;background:#e8f5e9;color:#1b5e20;padding:1px 5px;border-radius:3px;margin-left:3px;">手動</span>`
-        : source === 'zerion'
+        : fieldSource === 'zerion'
         ? `<span style="font-size:9px;background:#e8eeff;color:#1e3a8a;padding:1px 5px;border-radius:3px;margin-left:3px;">Zerion</span>`
-        : source === 'bitcoin'
+        : fieldSource === 'bitcoin'
         ? `<span style="font-size:9px;background:#fff3e0;color:#9a5c00;padding:1px 5px;border-radius:3px;margin-left:3px;">BTC</span>`
         : '';
     const editBtn = `<span class="addr-edit-btn" onclick="openTxAddrModal('${safeId}','${role}','${esc(addr||'')}','${chain}')" title="送信${role==='from'?'元':'先'}を設定">
@@ -2243,10 +2251,22 @@ function repairUnknownChains() {
     const d = load();
     let changed = false;
     d.transactions.forEach(tx => {
+        // chain=unknownをwalletIdから補完
         if (!tx.chain || tx.chain === 'unknown') {
             const wallet = d.wallets.find(w => w.id === tx.walletId);
             if (wallet?.chain && wallet.chain !== 'unknown') {
                 tx.chain = wallet.chain;
+                changed = true;
+            }
+        }
+        // source='manual' の古いデータ：zerion/bitcoinが本来のソースならsourceを戻す
+        // 送信元または送信先が登録ウォレットと一致する場合は自動取得データ
+        if (tx.source === 'manual' && !tx.fromSource && !tx.toSource) {
+            // hashがあればzerion/bitcoinが元ソースの可能性
+            // walletのchainでソースを推定してsourceを修正
+            const wallet = d.wallets.find(w => w.id === tx.walletId);
+            if (wallet) {
+                tx.source = wallet.chain === 'bitcoin' ? 'bitcoin' : 'zerion';
                 changed = true;
             }
         }

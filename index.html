@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.26</span>
+    <span class="ver-badge" id="verBadge">v5.27</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -545,7 +545,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.26</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.27</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -766,7 +766,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.26';
+const APP_VER  = '5.27';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -1666,6 +1666,9 @@ function renderCurrencyTable() {
 // =====================================================================
 // TXアドレス自動取得（Zerion API の sent_to / received_from）
 // =====================================================================
+// 中継コントラクト取得モーダルの状態
+let _clmState = {};
+
 async function lookupTxAddr(safeId, role) {
     const d = load();
     const tx = d.transactions.find(t => String(t.id).replace('.','_') === safeId);
@@ -1700,32 +1703,124 @@ async function lookupTxAddr(safeId, role) {
             return;
         }
 
-        // 登録名があれば表示
+        if (btn) { btn.textContent = '🔍 取得'; btn.style.pointerEvents = ''; }
+
+        // 取得したアドレスが登録済み（ウォレット or ラベル）か確認
         const walletMatch = resolveName(foundAddr, d.wallets);
-        const label = getLabel(foundAddr);
-        const displayAddr = foundAddr.slice(0,18)+'…';
-        const nameInfo = walletMatch ? `\n登録名: ${walletMatch}` : label ? `\nラベル: ${label}` : '\n（未登録アドレス）';
-        if (!confirm(`${role==='to'?'送金先':'送信元'}アドレスを取得しました。\n\n${displayAddr}${nameInfo}\n\nこの取引に設定しますか？`)) {
-            if (btn) { btn.textContent = '🔍 取得'; btn.style.pointerEvents = ''; }
+        const labelMatch  = getLabel(foundAddr);
+        const isKnown = walletMatch || labelMatch;
+
+        if (isKnown) {
+            // 既知アドレス → 確認のみ
+            if (!confirm(`${role==='to'?'送金先':'送信元'}アドレスを取得しました。\n\n${foundAddr.slice(0,18)}…\n登録名: ${walletMatch||labelMatch}\n\nこの取引に設定しますか？`)) return;
+            _applyLookupResult(safeId, role, foundAddr, null, null, null);
             return;
         }
 
-        const idx = d.transactions.findIndex(t => String(t.id).replace('.','_') === safeId);
-        if (idx >= 0) {
-            d.transactions[idx][role === 'to' ? 'to' : 'from'] = foundAddr.toLowerCase();
-            // APIで自動取得したのでsourceはzerion/bitcoinに設定（手動ではない）
-            const autoSrc = d.transactions[idx].chain === 'bitcoin' ? 'bitcoin' : 'zerion';
-            if (role === 'to') d.transactions[idx].toSource = autoSrc;
-            else d.transactions[idx].fromSource = autoSrc;
-            save(d);
-            showMsg(`${role==='to'?'送金先':'送信元'}を設定しました`, 'ok');
-            renderTxTable();
-        }
+        // 未知アドレス → モーダルで候補から実際の受取人を選ばせる
+        _clmState = { safeId, role, contractAddr: foundAddr.toLowerCase() };
+        _openContractLookupModal(foundAddr.toLowerCase());
+
     } catch(e) {
         console.error('lookupTxAddr:', e);
         showMsg('API取得エラー: ' + e.message, 'err');
         if (btn) { btn.textContent = '🔍 取得'; btn.style.pointerEvents = ''; }
     }
+}
+
+function _openContractLookupModal(contractAddr) {
+    const d = load();
+    const labels = loadLabels();
+
+    // 中継コントラクトアドレスを表示
+    document.getElementById('clmContractAddr').textContent = contractAddr;
+    document.getElementById('clmManualAddr').value = '';
+    document.getElementById('clmManualLabel').value = '';
+
+    // 候補リスト：ラベル（中継以外） + ウォレット
+    const candidates = [];
+    Object.entries(labels)
+        .filter(([a,l]) => !l.endsWith('（中継）') && a !== contractAddr)
+        .forEach(([addr, lbl]) => candidates.push({addr, label: lbl, type: 'label'}));
+    d.wallets.forEach(w => {
+        if (!candidates.find(c=>c.addr===w.address?.toLowerCase()))
+            candidates.push({addr: w.address?.toLowerCase(), label: w.group||w.name, type: 'wallet', chain: w.chain});
+    });
+
+    const listEl = document.getElementById('clmCandidateList');
+    if (!candidates.length) {
+        listEl.innerHTML = '<div style="padding:12px;color:#9aa3b0;font-size:12px;text-align:center;">候補なし（下の入力欄で手動入力してください）</div>';
+    } else {
+        listEl.innerHTML = candidates.map((c,i) => `
+            <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;font-size:12px;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background=''">
+                <input type="radio" name="clmCandidate" value="${esc(c.addr)}" style="cursor:pointer;">
+                <span style="font-weight:500;color:#374151;">${esc(c.label)}</span>
+                <span style="font-size:10px;color:#9aa3b0;font-family:monospace;">${c.addr.slice(0,14)}…</span>
+                <span style="font-size:9px;background:${c.type==='wallet'?'#dbeafe':'#dcfce7'};color:${c.type==='wallet'?'#1e40af':'#166534'};padding:1px 5px;border-radius:3px;margin-left:auto;">${c.type==='wallet'?'ウォレット':'ラベル'}</span>
+            </label>`).join('');
+    }
+
+    openModal('contractLookupModal');
+}
+
+function clmSaveContractOnly() {
+    const { safeId, role, contractAddr } = _clmState;
+    _applyLookupResult(safeId, role, contractAddr, null, null, null);
+    closeModal('contractLookupModal');
+}
+
+function clmSaveWithReal() {
+    const { safeId, role, contractAddr } = _clmState;
+    // ラジオボタンで選択された候補
+    const selected = document.querySelector('input[name="clmCandidate"]:checked');
+    const manualAddr  = document.getElementById('clmManualAddr').value.trim().toLowerCase();
+    const manualLabel = document.getElementById('clmManualLabel').value.trim();
+
+    const realAddr  = selected ? selected.value : manualAddr;
+    const realLabel = selected
+        ? null  // 既存ラベルなので再登録不要
+        : manualLabel;
+
+    if (!realAddr) {
+        showMsg('受取人を選択または入力してください', 'err'); return;
+    }
+
+    _applyLookupResult(safeId, role, realAddr, contractAddr, realLabel, null);
+    closeModal('contractLookupModal');
+}
+
+function _applyLookupResult(safeId, role, realAddr, contractAddr, newLabel, _unused) {
+    const d = load();
+    const idx = d.transactions.findIndex(t => String(t.id).replace('.','_') === safeId);
+    if (idx < 0) { showMsg('取引が見つかりません','err'); return; }
+
+    const fieldAddr     = role === 'to' ? 'to' : 'from';
+    const fieldContract = role === 'to' ? 'toContract' : 'fromContract';
+    const autoSrc = d.transactions[idx].chain === 'bitcoin' ? 'bitcoin' : 'zerion';
+
+    // 実際のアドレスをセット
+    d.transactions[idx][fieldAddr] = realAddr;
+    if (role==='to') d.transactions[idx].toSource = autoSrc;
+    else d.transactions[idx].fromSource = autoSrc;
+
+    // 中継コントラクトをセット（実際のアドレスと異なる場合のみ）
+    if (contractAddr && contractAddr !== realAddr) {
+        d.transactions[idx][fieldContract] = contractAddr;
+    }
+
+    // 新しいラベルを登録
+    if (newLabel && realAddr) {
+        const labels = loadLabels();
+        labels[realAddr] = newLabel;
+        if (contractAddr && contractAddr !== realAddr) labels[contractAddr] = newLabel + '（中継）';
+        saveLabels(labels);
+    }
+
+    save(d);
+    const roleName = role === 'to' ? '送金先' : '送信元';
+    const displayName = resolveName(realAddr, d.wallets) || getLabel(realAddr) || realAddr.slice(0,14)+'…';
+    showMsg(`${roleName}を「${displayName}」に設定しました`, 'ok');
+    renderTxTable();
 }
 
 // 通貨フォーマット（サマリー用）
@@ -2468,5 +2563,48 @@ window.addEventListener('load', async ()=>{
     renderSummary();
 });
 </script>
+
+<!-- ================================================================ -->
+<!-- 中継コントラクト取得後の実際の受取人選択モーダル                       -->
+<!-- ================================================================ -->
+<div class="modal-overlay" id="contractLookupModal">
+  <div class="modal" style="max-width:500px;">
+    <div class="modal-title">🔍 取得アドレスの確認</div>
+
+    <!-- 取得した中継コントラクト -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">取得したアドレス（中継コントラクト）</div>
+      <div id="clmContractAddr" style="font-family:'Courier New',monospace;font-size:11px;background:#f8f9fc;padding:8px 10px;border-radius:6px;color:#374151;word-break:break-all;"></div>
+    </div>
+
+    <!-- 実際の受取人選択 -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:8px;">
+        実際の受取人を選択
+        <span style="font-size:11px;font-weight:400;color:#6b7280;">（アドレスラベル・登録ウォレットから）</span>
+      </div>
+      <div id="clmCandidateList" style="max-height:200px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:6px;"></div>
+
+      <!-- 候補なしの場合の入力欄 -->
+      <div id="clmManualInput" style="margin-top:10px;">
+        <div style="font-size:11px;color:#6b7280;margin-bottom:4px;">または手動で入力</div>
+        <input id="clmManualAddr" placeholder="0x... （実際の受取人アドレス）" style="font-family:'Courier New',monospace;font-size:11px;width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:4px;">
+        <input id="clmManualLabel" placeholder="ラベル名（例: Tria）" style="font-size:12px;width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:4px;margin-top:6px;">
+      </div>
+    </div>
+
+    <!-- 中継のみ登録 -->
+    <div style="padding:8px 10px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:11px;color:#92400e;margin-bottom:14px;">
+      💡 受取人が分からない場合は「中継コントラクトのみ登録」を選択してください
+    </div>
+
+    <div class="modal-footer" style="gap:8px;">
+      <button class="btn btn-outline" onclick="closeModal('contractLookupModal')">キャンセル</button>
+      <button class="btn btn-outline" onclick="clmSaveContractOnly()" style="color:#92400e;border-color:#fde68a;">中継のみ登録</button>
+      <button class="btn btn-primary" onclick="clmSaveWithReal()">受取人を設定して登録</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

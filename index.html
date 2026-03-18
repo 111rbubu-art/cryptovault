@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.23</span>
+    <span class="ver-badge" id="verBadge">v5.24</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -521,7 +521,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.23</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.24</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -689,16 +689,26 @@ tr:hover .addr-edit-btn{opacity:1;}
     <!-- タブ3: ラベルのみ -->
     <div id="txAddrPane3" style="display:none;">
       <div id="txAddrAddrRow" class="form-row" style="margin-bottom:9px;">
-        <label style="font-size:12px;color:#5a6478;">アドレス</label>
+        <label style="font-size:12px;color:#5a6478;">
+          実際のアドレス
+          <span style="font-weight:400;color:#9aa3b0;">（HPや公式で確認したアドレス）</span>
+        </label>
         <input id="txAddrManualAddr" placeholder="0x... または bc1... (任意)" style="font-family:'Courier New',monospace;font-size:11px;">
       </div>
       <div class="form-row" style="margin-bottom:9px;">
         <label style="font-size:12px;color:#5a6478;">ラベル名</label>
-        <input id="txAddrLabel" placeholder="例: 取引所Aの入金アドレス" maxlength="40">
+        <input id="txAddrLabel" placeholder="例: Tria、取引所Aの入金アドレス" maxlength="40">
+      </div>
+      <div class="form-row" style="margin-bottom:9px;">
+        <label style="font-size:12px;color:#5a6478;">
+          中継コントラクト
+          <span style="font-weight:400;color:#9aa3b0;">（任意 / Zerionが返したアドレス等）</span>
+        </label>
+        <input id="txAddrContractAddr" placeholder="0x... （省略可）" style="font-family:'Courier New',monospace;font-size:11px;">
       </div>
       <p style="font-size:11px;color:#9aa3b0;margin-top:4px;">
-        アドレスとラベルを設定します。アドレスが分かれば入力することで取引にも反映されます。<br>
-        ラベルはアドレス帳に保存され、同じアドレスが他の取引に現れたときも緑字で表示されます。
+        実際のアドレスとラベルで管理できます。中継コントラクトも登録すると、<br>
+        その取引の送信元/送信先欄に「ラベル名（コントラクト経由）」と表示されます。
       </p>
     </div>
 
@@ -732,7 +742,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.23';
+const APP_VER  = '5.24';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -1691,6 +1701,10 @@ function openTxAddrModal(txId, field, currentAddr, chain) {
     document.getElementById('txAddrNewName').value = '';
     // タブ3のアドレス欄：既知アドレスがあれば表示
     document.getElementById('txAddrManualAddr').value = currentAddr || '';
+    // 中継コントラクト欄：既存値があれば表示
+    const txForContract = d.transactions.find(t=>String(t.id).replace('.','_')===String(txId));
+    const contractField = field==='from' ? 'fromContract' : 'toContract';
+    document.getElementById('txAddrContractAddr').value = txForContract?.[contractField] || '';
 
     // アドレス不明の場合はタブ3（ラベル/手動アドレス入力）をデフォルトに
     switchTxAddrTab(currentAddr ? 1 : 3);
@@ -1763,6 +1777,21 @@ function txAddrSave() {
             if (targetAddr !== (currentAddr||'').toLowerCase()) {
                 tx[field] = targetAddr;
             }
+        }
+
+        // 中継コントラクトアドレスを保存（任意）
+        const contractAddr = document.getElementById('txAddrContractAddr').value.trim().toLowerCase();
+        const contractField = field==='from' ? 'fromContract' : 'toContract';
+        if (contractAddr) {
+            tx[contractField] = contractAddr;
+            // コントラクトにもラベルがあれば登録
+            if (lbl) {
+                const labels = loadLabels();
+                labels[contractAddr] = lbl + '（中継）';
+                saveLabels(labels);
+            }
+        } else {
+            delete tx[contractField]; // 空ならフィールド削除
         }
     }
 
@@ -1866,8 +1895,8 @@ function renderTxTable() {
         // fieldごとのsource：手動編集された側はmanual、それ以外は取引全体のsource
         const fromSrc = tx.fromSource || tx.source;
         const toSrc   = tx.toSource   || tx.source;
-        const fromCell=addrLabelWithEdit(tx.from,d.wallets,chain,'from',tx.id,fromDN,fromSrc);
-        const toCell  =addrLabelWithEdit(tx.to,  d.wallets,chain,'to',  tx.id,toDN,  toSrc);
+        const fromCell=addrLabelWithEdit(tx.from,d.wallets,chain,'from',tx.id,fromDN,fromSrc,tx.fromContract);
+        const toCell  =addrLabelWithEdit(tx.to,  d.wallets,chain,'to',  tx.id,toDN,  toSrc,  tx.toContract);
         const rowStyle=inGroup?'background:#f0f6ff;':'';
         const indent=inGroup?'padding-left:20px;border-left:3px solid #93c5fd;':'';
         return `<tr style="${rowStyle}" data-txid="${safeId}">
@@ -2111,7 +2140,7 @@ function explorerUrlForHash(hash, chain) {
 }
 
 // 送信元/送信先ラベル（編集ボタン付き）
-function addrLabelWithEdit(addr, wallets, chain, role, txId, displayName, source) {
+function addrLabelWithEdit(addr, wallets, chain, role, txId, displayName, source, contractAddr) {
     const safeId = String(txId).replace('.','_');
     // fieldごとのsourceを優先（fromSource/toSource）、なければtx全体のsource
     const fieldSource = source; // 呼び出し元でroleに応じて渡す
@@ -2121,6 +2150,10 @@ function addrLabelWithEdit(addr, wallets, chain, role, txId, displayName, source
         ? `<span style="font-size:9px;background:#e8eeff;color:#1e3a8a;padding:1px 5px;border-radius:3px;margin-left:3px;">Zerion</span>`
         : fieldSource === 'bitcoin'
         ? `<span style="font-size:9px;background:#fff3e0;color:#9a5c00;padding:1px 5px;border-radius:3px;margin-left:3px;">BTC</span>`
+        : '';
+    // 中継コントラクトバッジ
+    const contractBadge = contractAddr
+        ? `<span style="font-size:9px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:3px;margin-left:3px;cursor:default;" title="中継コントラクト: ${esc(contractAddr)}">経由</span>`
         : '';
     const editBtn = `<span class="addr-edit-btn" onclick="openTxAddrModal('${safeId}','${role}','${esc(addr||'')}','${chain}')" title="送信${role==='from'?'元':'先'}を設定">
         <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M7.5 1.5l2 2-6 6H1.5v-2l6-6z" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
@@ -2150,13 +2183,17 @@ function addrLabelWithEdit(addr, wallets, chain, role, txId, displayName, source
     // ツールチップ：ウォレット名の場合はチェーン+アドレスも表示
     if (n) {
         const w = resolveWallet(addr.toLowerCase(), wallets);
+        const contractInfo = contractAddr ? `\n中継: ${contractAddr}` : '';
         const tooltip = w
-            ? `${w.group||w.name}${w.memo?' / '+w.memo:''} | ${w.chain.toUpperCase()} | ${addr}`
-            : addr;
-        return `<span class="addr-known" title="${esc(tooltip)}" style="cursor:pointer;" onclick="${onClick}">${esc(n)}</span>${srcBadge}${editBtn}`;
+            ? `${w.group||w.name}${w.memo?' / '+w.memo:''} | ${w.chain.toUpperCase()} | ${addr}${contractInfo}`
+            : `${addr}${contractInfo}`;
+        return `<span class="addr-known" title="${esc(tooltip)}" style="cursor:pointer;" onclick="${onClick}">${esc(n)}</span>${contractBadge}${srcBadge}${editBtn}`;
     }
-    if (lbl) return `<span class="addr-labeled" title="${esc(addr)}" onclick="${onClick}">${esc(lbl)}</span>${srcBadge}${editBtn}`;
-    return `<span class="addr-unknown" title="${esc(addr)}" style="cursor:pointer;" onclick="${onClick}">${addr.slice(0,10)}…<svg width='8' height='8' viewBox='0 0 9 9' fill='none' style='vertical-align:middle;margin-left:2px;'><circle cx='4.5' cy='4.5' r='4' stroke='#9aa3b0' stroke-width='1'/><path d='M4.5 3v1.8M4.5 6.2v.3' stroke='#9aa3b0' stroke-width='1' stroke-linecap='round'/></svg></span>${srcBadge}${editBtn}`;
+    if (lbl) {
+        const contractInfo = contractAddr ? ` | 中継: ${contractAddr}` : '';
+        return `<span class="addr-labeled" title="${esc(addr)}${esc(contractInfo)}" onclick="${onClick}">${esc(lbl)}</span>${contractBadge}${srcBadge}${editBtn}`;
+    }
+    return `<span class="addr-unknown" title="${esc(addr)}" style="cursor:pointer;" onclick="${onClick}">${addr.slice(0,10)}…<svg width='8' height='8' viewBox='0 0 9 9' fill='none' style='vertical-align:middle;margin-left:2px;'><circle cx='4.5' cy='4.5' r='4' stroke='#9aa3b0' stroke-width='1'/><path d='M4.5 3v1.8M4.5 6.2v.3' stroke='#9aa3b0' stroke-width='1' stroke-linecap='round'/></svg></span>${contractBadge}${srcBadge}${editBtn}`;
 }
 
 // =====================================================================

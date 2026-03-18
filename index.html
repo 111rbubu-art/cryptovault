@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.8</span>
+    <span class="ver-badge" id="verBadge">v5.9</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -387,7 +387,15 @@ tr:hover .addr-edit-btn{opacity:1;}
   <!-- ウォレット追加フォーム -->
   <div class="form-section" id="addForm">
     <div class="form-section-title">新規ウォレット追加</div>
-    <div class="form-row"><label>ウォレット名</label><input id="fn" placeholder="例: MetaMask Main"></div>
+    <div style="font-size:12px;color:#6b7280;margin-bottom:10px;padding:8px 10px;background:#f0f9ff;border-radius:6px;border-left:3px solid #3b82f6;">
+      💡 グループ名に「MetaMask」と入れると、複数のアドレス・チェーンを1つのウォレット名でまとめられます
+    </div>
+    <div class="form-row">
+      <label>グループ名 <span style="font-size:10px;color:#9aa3b0;">（例: MetaMask、bitradeX）</span></label>
+      <input id="fg" placeholder="例: MetaMask" list="groupList">
+      <datalist id="groupList"></datalist>
+    </div>
+    <div class="form-row"><label>個別メモ <span style="font-size:10px;color:#9aa3b0;">（省略可 / 例: ETH用、Polygon用）</span></label><input id="fn" placeholder="例: ETH用"></div>
     <div class="form-row"><label>アドレス</label><input id="fa" placeholder="0x... または bc1..."></div>
     <div class="form-row">
       <label>チェーン</label>
@@ -411,7 +419,11 @@ tr:hover .addr-edit-btn{opacity:1;}
   <div class="form-section" id="editForm">
     <div class="form-section-title">ウォレット編集</div>
     <input type="hidden" id="eid">
-    <div class="form-row"><label>ウォレット名</label><input id="en" placeholder="ウォレット名"></div>
+    <div class="form-row">
+      <label>グループ名 <span style="font-size:10px;color:#9aa3b0;">（例: MetaMask）</span></label>
+      <input id="eg" placeholder="例: MetaMask" list="groupList">
+    </div>
+    <div class="form-row"><label>個別メモ <span style="font-size:10px;color:#9aa3b0;">（省略可 / 例: ETH用）</span></label><input id="en" placeholder="例: ETH用"></div>
     <div class="form-row"><label>アドレス</label><input id="ea" placeholder="0x..."></div>
     <div class="form-row">
       <label>チェーン</label>
@@ -456,6 +468,15 @@ tr:hover .addr-edit-btn{opacity:1;}
         <tbody id="walletTableBody"></tbody>
       </table>
     </div>
+
+    <!-- ラベルのみ登録セクション -->
+    <div class="section-card" style="margin-top:20px;">
+      <div class="section-header" style="margin-bottom:12px;">
+        <span class="section-title">アドレスラベル一覧</span>
+        <span style="font-size:12px;color:#6b7280;margin-left:8px;">取引の送信元・送信先に設定したラベル</span>
+      </div>
+      <div id="labelTableSection"></div>
+    </div>
   </div>
 </div>
 
@@ -474,7 +495,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.8</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.9</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -685,7 +706,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.8';
+const APP_VER  = '5.9';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -786,24 +807,38 @@ function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 // ウォレット CRUD
 // =====================================================================
 function addWallet() {
-    const name=document.getElementById('fn').value.trim();
-    const addr=document.getElementById('fa').value.trim().toLowerCase();
+    const group=document.getElementById('fg').value.trim();
+    const memo =document.getElementById('fn').value.trim();
+    const addr =document.getElementById('fa').value.trim().toLowerCase();
     const chain=document.getElementById('fc').value;
-    if(!name||!addr){showMsg('名前とアドレスを入力してください','err');return;}
+    if(!group||!addr){showMsg('グループ名とアドレスを入力してください','err');return;}
     const d=load();
-    if(d.wallets.find(w=>w.address===addr)){showMsg('このアドレスは既に登録されています','err');return;}
-    const w={id:Date.now(),name,address:addr,chain,balanceLabel:''};
+    // 同じアドレス+チェーンの重複チェック（異なるチェーンは許可）
+    if(d.wallets.find(w=>w.address===addr&&w.chain===chain)){showMsg('同じアドレス・チェーンは既に登録されています','err');return;}
+    const name=group+(memo?(' / '+memo):'');
+    const w={id:Date.now()+Math.random(),name,group,memo,address:addr,chain,balanceLabel:''};
     d.wallets.push(w); save(d);
-    document.getElementById('fn').value=''; document.getElementById('fa').value='';
+    document.getElementById('fg').value=''; document.getElementById('fn').value=''; document.getElementById('fa').value='';
+    // groupListを更新
+    updateGroupList();
     toggleForm('addForm');
     showMsg('ウォレットを追加しました','ok'); renderWallets(); fetchBalance(w.id);
 }
 
+function updateGroupList() {
+    const d=load();
+    const groups=[...new Set(d.wallets.map(w=>w.group||w.name).filter(Boolean))];
+    const dl=document.getElementById('groupList');
+    if(dl) dl.innerHTML=groups.map(g=>`<option value="${esc(g)}">`).join('');
+}
+
 function openEdit(wid) {
     const d=load(); const w=d.wallets.find(x=>x.id===wid); if(!w) return;
+    updateGroupList();
     document.querySelectorAll('.form-section').forEach(f=>f.classList.remove('open'));
     document.getElementById('eid').value=wid;
-    document.getElementById('en').value=w.name;
+    document.getElementById('eg').value=w.group||w.name||'';
+    document.getElementById('en').value=w.memo||'';
     document.getElementById('ea').value=w.address;
     document.getElementById('ec').value=w.chain;
     const ef=document.getElementById('editForm');
@@ -811,16 +846,27 @@ function openEdit(wid) {
 }
 
 function saveEdit() {
-    const id=parseInt(document.getElementById('eid').value);
-    const name=document.getElementById('en').value.trim();
-    const addr=document.getElementById('ea').value.trim().toLowerCase();
+    const id   =parseFloat(document.getElementById('eid').value);
+    const group=document.getElementById('eg').value.trim();
+    const memo =document.getElementById('en').value.trim();
+    const addr =document.getElementById('ea').value.trim().toLowerCase();
     const chain=document.getElementById('ec').value;
-    if(!name||!addr){showMsg('名前とアドレスを入力してください','err');return;}
-    const d=load(); const idx=d.wallets.findIndex(w=>w.id===id); if(idx<0) return;
+    if(!group||!addr){showMsg('グループ名とアドレスを入力してください','err');return;}
+    const d=load(); const idx=d.wallets.findIndex(w=>w.id===id); if(idx<0){showMsg('ウォレットが見つかりません','err');return;}
     const old=d.wallets[idx].address;
-    d.wallets[idx]={...d.wallets[idx],name,address:addr,chain};
+    const name=group+(memo?(' / '+memo):'');
+    d.wallets[idx]={...d.wallets[idx],name,group,memo,address:addr,chain};
     save(d); toggleForm('editForm'); showMsg('保存しました','ok'); renderWallets();
     if(addr!==old) fetchBalance(id);
+}
+
+function deleteLabel(addr) {
+    if(!confirm(`ラベルを削除しますか？`)) return;
+    const labels=loadLabels();
+    delete labels[addr];
+    saveLabels(labels);
+    showMsg('ラベルを削除しました','ok');
+    renderWallets();
 }
 
 function delWallet(wid) {
@@ -1073,7 +1119,8 @@ function deleteLabel(addr){
 }
 
 // =====================================================================
-function resolveName(addr,wallets){ if(!addr)return null; const w=wallets.find(w=>w.address===addr.toLowerCase()); return w?w.name:null; }
+function resolveName(addr,wallets){ if(!addr)return null; const w=wallets.find(w=>w.address===addr.toLowerCase()); return w?(w.group||w.name):null; }
+function resolveWallet(addr,wallets){ if(!addr)return null; return wallets.find(w=>w.address===addr.toLowerCase())||null; }
 function addrLabel(addr,wallets,chain,role){
     if(!addr) return '<span class="addr-unknown" style="cursor:default;">—</span>';
     const n=resolveName(addr.toLowerCase(),wallets);
@@ -1093,31 +1140,102 @@ function addrLabel(addr,wallets,chain,role){
 // =====================================================================
 function renderWallets() {
     const d=load();
+    const labels=loadLabels();
+    const labelEntries=Object.entries(labels);
+    updateGroupList();
     document.getElementById('walletCountBadge').textContent=d.wallets.length+'件';
     const tb=document.getElementById('walletTableBody');
+
     if(!d.wallets.length){
         tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:#9aa3b0;padding:28px;">ウォレットがまだ登録されていません</td></tr>';
+    } else {
+        // グループ別に集約
+        const groups = {};
+        d.wallets.forEach(w=>{
+            const g = w.group || w.name;
+            if(!groups[g]) groups[g]=[];
+            groups[g].push(w);
+        });
+
+        tb.innerHTML = Object.entries(groups).map(([gName, wallets])=>{
+            const rows = wallets.map((w,i)=>{
+                const isTron=w.chain==='tron';
+                const bal=w.balanceLabel||(isTron?'手動管理':'未取得');
+                const lbl=labels[w.address?.toLowerCase()]||'';
+                const txBtn=isTron
+                    ?`<button class="btn btn-outline btn-sm" disabled style="opacity:0.4;">TX更新不可</button>`
+                    :`<button class="btn btn-outline btn-sm" onclick="fetchTx(${w.id})">TX更新</button>
+                      <button class="btn btn-outline btn-sm" onclick="fetchBalance(${w.id})">残高</button>`;
+                const memoLabel = w.memo ? `<span style="font-size:10px;color:#6b7280;margin-left:4px;">${esc(w.memo)}</span>` : '';
+                const lblBadge  = lbl ? `<span style="font-size:10px;color:#3b82f6;margin-left:4px;">(${esc(lbl)})</span>` : '';
+                return `<tr>
+                    <td style="padding-left:${wallets.length>1?'28px':'12px'};">
+                      ${memoLabel}${lblBadge}
+                    </td>
+                    <td><span class="badge-chain chain-${w.chain}">${w.chain.toUpperCase()}</span></td>
+                    <td class="td-mono td-muted" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;max-width:260px;">${esc(w.address)}</td>
+                    <td class="td-right" style="font-weight:500;">${esc(bal)}</td>
+                    <td><div class="action-cell">
+                        ${txBtn}
+                        <button class="btn btn-outline btn-sm" onclick="openEdit(${w.id})">編集</button>
+                        <button class="btn btn-danger  btn-sm" onclick="delWallet(${w.id})">削除</button>
+                    </div></td>
+                </tr>`;
+            }).join('');
+
+            // グループヘッダー行
+            const headerRow = wallets.length > 1
+                ? `<tr style="background:#f8fafc;">
+                    <td colspan="5" style="padding:8px 12px;font-weight:600;color:#1e293b;border-bottom:1px solid #e5e7eb;">
+                      <span style="margin-right:6px;">👛</span>${esc(gName)}
+                      <span style="font-size:11px;color:#6b7280;font-weight:400;margin-left:6px;">${wallets.length}件</span>
+                    </td>
+                  </tr>`
+                : `<tr>
+                    <td style="font-weight:500;padding:10px 12px;">${esc(gName)}</td>`;
+
+            return wallets.length > 1
+                ? headerRow + rows
+                : `<tr>
+                    <td style="font-weight:500;">${esc(gName)}${wallets[0].memo?` <span style="font-size:10px;color:#6b7280;">/ ${esc(wallets[0].memo)}</span>`:''}</td>
+                    <td><span class="badge-chain chain-${wallets[0].chain}">${wallets[0].chain.toUpperCase()}</span></td>
+                    <td class="td-mono td-muted" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;max-width:260px;">${esc(wallets[0].address)}</td>
+                    <td class="td-right" style="font-weight:500;">${esc(wallets[0].balanceLabel||(wallets[0].chain==='tron'?'手動管理':'未取得'))}</td>
+                    <td><div class="action-cell">
+                        ${wallets[0].chain==='tron'
+                            ?`<button class="btn btn-outline btn-sm" disabled style="opacity:0.4;">TX更新不可</button>`
+                            :`<button class="btn btn-outline btn-sm" onclick="fetchTx(${wallets[0].id})">TX更新</button>
+                              <button class="btn btn-outline btn-sm" onclick="fetchBalance(${wallets[0].id})">残高</button>`
+                        }
+                        <button class="btn btn-outline btn-sm" onclick="openEdit(${wallets[0].id})">編集</button>
+                        <button class="btn btn-danger  btn-sm" onclick="delWallet(${wallets[0].id})">削除</button>
+                    </div></td>
+                  </tr>`;
+        }).join('');
+    }
+
+    // ラベルのみ登録セクション
+    const lb=document.getElementById('labelTableSection');
+    if(!lb) return;
+    if(!labelEntries.length){
+        lb.innerHTML='<p style="color:#9aa3b0;font-size:13px;padding:8px 0;">ラベル登録はありません</p>';
         return;
     }
-    tb.innerHTML=d.wallets.map(w=>{
-        const isTron=w.chain==='tron';
-        const bal=w.balanceLabel||(isTron?'手動管理':'未取得');
-        const txBtn=isTron
-            ?`<button class="btn btn-outline btn-sm" disabled style="opacity:0.4;">TX更新不可</button>`
-            :`<button class="btn btn-outline btn-sm" onclick="fetchTx(${w.id})">TX更新</button>
-              <button class="btn btn-outline btn-sm" onclick="fetchBalance(${w.id})">残高</button>`;
-        return `<tr>
-            <td style="font-weight:500;">${esc(w.name)}</td>
-            <td><span class="badge-chain chain-${w.chain}">${w.chain.toUpperCase()}</span></td>
-            <td class="td-mono td-muted" style="overflow:hidden;text-overflow:ellipsis;max-width:300px;">${esc(w.address)}</td>
-            <td class="td-right" style="font-weight:500;">${esc(bal)}</td>
-            <td><div class="action-cell">
-                ${txBtn}
-                <button class="btn btn-outline btn-sm" onclick="openEdit(${w.id})">編集</button>
-                <button class="btn btn-danger  btn-sm" onclick="delWallet(${w.id})">削除</button>
-            </div></td>
-        </tr>`;
-    }).join('');
+    lb.innerHTML=`<table class="data-table" style="margin-top:0;">
+        <thead><tr>
+            <th>アドレス</th>
+            <th>ラベル</th>
+            <th>操作</th>
+        </tr></thead>
+        <tbody>${labelEntries.map(([addr,lbl])=>{
+            const linked=d.wallets.find(w=>w.address===addr);
+            return `<tr>
+                <td class="td-mono td-muted" style="font-size:11px;">${addr.slice(0,18)}…</td>
+                <td>${esc(lbl)}${linked?`<span style="font-size:10px;color:#3b82f6;margin-left:6px;">→${esc(linked.name)}</span>`:''}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteLabel('${addr}')">削除</button></td>
+            </tr>`;
+        }).join('')}</tbody>
+    </table>`;
 }
 
 // =====================================================================
@@ -1482,7 +1600,14 @@ function addrLabelWithEdit(addr, wallets, chain, role, txId, displayName, source
     const lbl=getLabel(addr);
     const cl =chain||'unknown';
     const onClick=`showAddrPop('${addr.replace(/'/g,"\\'")}','${cl}','${role}',event)`;
-    if (n)   return `<span class="addr-known"   title="${esc(addr)}" style="cursor:pointer;" onclick="${onClick}">${esc(n)}</span>${srcBadge}${editBtn}`;
+    // ツールチップ：ウォレット名の場合はチェーン+アドレスも表示
+    if (n) {
+        const w = resolveWallet(addr.toLowerCase(), wallets);
+        const tooltip = w
+            ? `${w.group||w.name}${w.memo?' / '+w.memo:''} | ${w.chain.toUpperCase()} | ${addr}`
+            : addr;
+        return `<span class="addr-known" title="${esc(tooltip)}" style="cursor:pointer;" onclick="${onClick}">${esc(n)}</span>${srcBadge}${editBtn}`;
+    }
     if (lbl) return `<span class="addr-labeled" title="${esc(addr)}" onclick="${onClick}">${esc(lbl)}</span>${srcBadge}${editBtn}`;
     return `<span class="addr-unknown" title="${esc(addr)}" style="cursor:pointer;" onclick="${onClick}">${addr.slice(0,10)}…<svg width='8' height='8' viewBox='0 0 9 9' fill='none' style='vertical-align:middle;margin-left:2px;'><circle cx='4.5' cy='4.5' r='4' stroke='#9aa3b0' stroke-width='1'/><path d='M4.5 3v1.8M4.5 6.2v.3' stroke='#9aa3b0' stroke-width='1' stroke-linecap='round'/></svg></span>${srcBadge}${editBtn}`;
 }

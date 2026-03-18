@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.13</span>
+    <span class="ver-badge" id="verBadge">v5.14</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -512,7 +512,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.13</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.14</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -723,7 +723,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.13';
+const APP_VER  = '5.14';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -997,7 +997,7 @@ async function fetchZerionTx(w,d) {
         (j.data||[]).forEach(item=>{
             const hash=(item.attributes?.hash)||item.id;
             if(d.transactions.find(t=>t.hash===hash&&t.walletId===w.id)) return;
-            const p=parseZerionItem(item,w.id,w.address);
+            const p=parseZerionItem(item,w.id,w.address,w.chain);
             if(p) d.transactions.push(p);
         });
         const next=j.links?.next;
@@ -1005,11 +1005,12 @@ async function fetchZerionTx(w,d) {
     }
 }
 
-function parseZerionItem(item,walletId,walletAddr) {
+function parseZerionItem(item,walletId,walletAddr,walletChain) {
     const a=item.attributes||{};
     const hash=a.hash||item.id;
     const ts=a.mined_at||a.sent_at||new Date().toISOString();
-    const chain=a.chain||'unknown';
+    // chainはAPIから取得、不明の場合はウォレットのチェーンを使用
+    const chain=a.chain&&a.chain!=='unknown'?a.chain:(walletChain||'unknown');
     const trs=a.transfers||{};
     const feeObj=a.fee||{};
     const feeQ=feeObj.quantity?.float||0;
@@ -1651,51 +1652,78 @@ function renderTxTable() {
 
     // ④ グループ代表行（折りたたみ行）のレンダリング
     function renderGroupRow(gid, gTxs) {
-        const collapsed = window._txGroupCollapsed[gid] !== false; // デフォルト折りたたみ
-        const latestTx = gTxs.slice().sort((a,b)=>new Date(b.timestamp||0)-new Date(a.timestamp||0))[0];
+        const collapsed = window._txGroupCollapsed[gid] !== false;
+        const sorted = gTxs.slice().sort((a,b)=>new Date(b.timestamp||0)-new Date(a.timestamp||0));
+        const latestTx = sorted[0];
         const latestDate = latestTx?.timestamp ? new Date(latestTx.timestamp).toLocaleString('ja-JP') : '-';
-        const types = [...new Set(gTxs.map(t=>tmap[t.type]||t.type))].join('・');
-        const chains = [...new Set(gTxs.map(t=>t.chain||'—'))].join('・');
-        // 送信元・送信先のまとめ
-        const froms = [...new Set(gTxs.map(t=>{
-            if(t.fromDisplayName) return t.fromDisplayName;
-            return resolveName(t.from, d.wallets) || (t.from?t.from.slice(0,8)+'…':'—');
-        }))].join(' → ');
-        const tos = [...new Set(gTxs.map(t=>{
-            if(t.toDisplayName) return t.toDisplayName;
-            return resolveName(t.to, d.wallets) || (t.to?t.to.slice(0,8)+'…':'—');
-        }))].join(' → ');
+
+        // 送金側（send）と受取側（receive）を分ける
+        const sendTx  = gTxs.find(t=>t.type==='send')   || gTxs.find(t=>t.outCurrency);
+        const recvTx  = gTxs.find(t=>t.type==='receive') || gTxs.find(t=>t.inCurrency);
+
+        // 売却欄：sendTxのout、なければ全txのoutを合算
+        const outCur  = sendTx?.outCurrency || gTxs.map(t=>t.outCurrency).filter(Boolean)[0] || '—';
+        const outQty  = sendTx?.outQuantity || gTxs.reduce((s,t)=>s+(t.outQuantity||0),0);
+        const outVal  = sendTx?.outValue    || gTxs.reduce((s,t)=>s+(t.outValue||0),0);
+
+        // 取得欄：recvTxのin、なければ全txのinを合算
+        const inCur   = recvTx?.inCurrency  || gTxs.map(t=>t.inCurrency).filter(Boolean)[0]  || '—';
+        const inQty   = recvTx?.inQuantity  || gTxs.reduce((s,t)=>s+(t.inQuantity||0),0);
+        const inVal   = recvTx?.inValue     || gTxs.reduce((s,t)=>s+(t.inValue||0),0);
+
+        // 手数料合計
+        const totalFee = gTxs.reduce((s,t)=>s+(t.feeValue||0),0);
+        const totalFeeQ= gTxs.reduce((s,t)=>s+(t.feeQuantity||0),0);
+        const fStr = totalFeeQ>0
+            ?`${totalFeeQ.toFixed(5)}<br><span style="color:#9aa3b0;font-size:10px;">(${fmtMoneyStr(totalFee)})</span>`
+            :'-';
+
+        // 送信元・送信先（送金側→受取側）
+        const fromName = sendTx
+            ? (sendTx.fromDisplayName || resolveName(sendTx.from,d.wallets) || (sendTx.from?sendTx.from.slice(0,8)+'…':'—'))
+            : '—';
+        const toName = recvTx
+            ? (recvTx.toDisplayName || resolveName(recvTx.to,d.wallets) || (recvTx.to?recvTx.to.slice(0,8)+'…':'—'))
+            : '—';
+
+        // チェーン（ユニーク）
+        const chainSet = [...new Set(gTxs.map(t=>t.chain).filter(c=>c&&c!=='unknown'))];
+        const chainStr = chainSet[0] || gTxs[0]?.chain || 'unknown';
+
+        const outQStr = outQty
+            ?`${outQty.toFixed(8)}<br><span style="color:#9aa3b0;font-size:10px;">(${fmtMoneyStr(outVal)})</span>`:'—';
+        const inQStr  = inQty
+            ?`${inQty.toFixed(8)}<br><span style="color:#9aa3b0;font-size:10px;">(${fmtMoneyStr(inVal)})</span>`:'—';
 
         const expandIcon = collapsed ? '▶' : '▼';
-        const childRows = collapsed ? '' : gTxs
-            .slice().sort((a,b)=>new Date(b.timestamp||0)-new Date(a.timestamp||0))
-            .map(tx=>renderTxRow(tx, true)).join('');
+        const childRows = collapsed ? '' : sorted.map(tx=>renderTxRow(tx, true)).join('');
 
         return `<tr style="background:#dbeafe;border-left:4px solid #2563eb;" class="group-summary-row" data-gid="${gid}">
             <td style="padding:4px 6px;text-align:center;">
                 <input type="checkbox" class="tx-check-group" data-gid="${gid}" onchange="onGroupCheckChange('${gid}',this.checked)" style="cursor:pointer;" title="グループ全体を選択">
             </td>
-            <td>
+            <td style="white-space:nowrap;">
                 <button onclick="toggleGroupCollapse('${gid}')" class="btn btn-sm"
-                    style="background:none;border:1px solid #93c5fd;color:#1e40af;padding:2px 7px;font-size:12px;font-weight:700;cursor:pointer;"
+                    style="background:none;border:1px solid #93c5fd;color:#1e40af;padding:2px 7px;font-size:12px;font-weight:700;cursor:pointer;margin-right:3px;"
                     title="${collapsed?'展開':'折りたたむ'}">${expandIcon}</button>
+                <span style="font-size:9px;background:#2563eb;color:#fff;padding:1px 5px;border-radius:3px;">🔗${gTxs.length}件</span>
             </td>
             <td class="td-muted" style="font-size:11px;">${latestDate}</td>
-            <td style="color:#1e40af;font-size:12px;">${esc(froms)}</td>
-            <td style="color:#1e40af;font-size:12px;">${esc(tos)}</td>
-            <td colspan="4" style="color:#374151;font-size:11px;padding:4px 8px;">
-                <span style="font-weight:600;">🔗 グループ ${gTxs.length}件</span>
-                <span style="margin-left:8px;color:#6b7280;">${types}</span>
-                <span style="margin-left:8px;color:#6b7280;">${chains}</span>
-            </td>
-            <td colspan="2"></td>
+            <td style="color:#1e40af;font-size:12px;">${esc(fromName)}</td>
+            <td style="color:#1e40af;font-size:12px;">${esc(toName)}</td>
+            <td class="td-right" style="background:#fff0f0;">${esc(outCur)}</td>
+            <td class="td-right td-mono" style="background:#fff0f0;">${outQStr}</td>
+            <td class="td-right" style="background:#f0fff4;">${esc(inCur)}</td>
+            <td class="td-right td-mono" style="background:#f0fff4;">${inQStr}</td>
+            <td class="td-right td-mono">${fStr}</td>
+            <td class="td-right" style="color:#6b7280;">—</td>
+            <td><span class="badge-chain chain-${chainStr}" style="font-size:9px;padding:1px 6px;">${esc(chainStr.toUpperCase())}</span></td>
             <td>
                 <button class="btn btn-sm" onclick="ungroupTxGroup('${gid}')"
                     style="padding:2px 8px;font-size:10px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;white-space:nowrap;">
                     🔓 解除
                 </button>
             </td>
-            <td></td>
         </tr>${childRows}`;
     }
 
@@ -2018,12 +2046,30 @@ function showMsg(text,type){
 // =====================================================================
 // 初期化
 // =====================================================================
+function repairUnknownChains() {
+    const d = load();
+    let changed = false;
+    d.transactions.forEach(tx => {
+        if (!tx.chain || tx.chain === 'unknown') {
+            const wallet = d.wallets.find(w => w.id === tx.walletId);
+            if (wallet?.chain && wallet.chain !== 'unknown') {
+                tx.chain = wallet.chain;
+                changed = true;
+            }
+        }
+    });
+    if (changed) save(d);
+}
+
+
 window.addEventListener('load', async ()=>{
     // 為替レート取得
     await fetchFxRate();
     // 通貨ラベル初期化
     document.getElementById('currencyLabel').textContent = _currency === 'JPY' ? '¥ JPY' : '$ USD';
     updateTxHeaders();
+    // 既存データのchain=unknownをwalletIdから補完
+    repairUnknownChains();
     updateApiBadge();
     renderWallets();
     renderSummary();

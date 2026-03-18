@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.24</span>
+    <span class="ver-badge" id="verBadge">v5.25</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -500,7 +500,31 @@ tr:hover .addr-edit-btn{opacity:1;}
       <div class="section-header" style="margin-bottom:12px;">
         <span class="section-title">アドレスラベル一覧</span>
         <span style="font-size:12px;color:#6b7280;margin-left:8px;">取引の送信元・送信先に設定したラベル</span>
+        <button class="btn btn-sm btn-primary" onclick="toggleLabelAddForm()" id="labelAddBtn"
+          style="margin-left:auto;padding:4px 12px;font-size:12px;">+ 新規追加</button>
       </div>
+
+      <!-- 新規ラベル追加フォーム -->
+      <div id="labelAddForm" style="display:none;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:600;color:#0369a1;margin-bottom:10px;">新規アドレスラベル登録</div>
+        <div class="form-row" style="margin-bottom:8px;">
+          <label style="font-size:12px;color:#5a6478;">アドレス <span style="color:#c0392b;">*</span></label>
+          <input id="newLabelAddr" placeholder="0x... または bc1..." style="font-family:'Courier New',monospace;font-size:11px;">
+        </div>
+        <div class="form-row" style="margin-bottom:8px;">
+          <label style="font-size:12px;color:#5a6478;">ラベル名 <span style="color:#c0392b;">*</span></label>
+          <input id="newLabelName" placeholder="例: Tria、取引所A 入金アドレス" maxlength="40">
+        </div>
+        <div class="form-row" style="margin-bottom:10px;">
+          <label style="font-size:12px;color:#5a6478;">中継コントラクト <span style="font-weight:400;color:#9aa3b0;">（任意）</span></label>
+          <input id="newLabelContract" placeholder="0x... （省略可）" style="font-family:'Courier New',monospace;font-size:11px;">
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" onclick="addNewLabel()" style="font-size:12px;">保存</button>
+          <button class="btn btn-outline btn-sm" onclick="toggleLabelAddForm()" style="font-size:12px;">キャンセル</button>
+        </div>
+      </div>
+
       <div id="labelTableSection"></div>
     </div>
   </div>
@@ -521,7 +545,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.24</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.25</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -742,7 +766,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.24';
+const APP_VER  = '5.25';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -906,6 +930,41 @@ function saveEdit() {
     d.wallets[idx]={...d.wallets[idx],name,group,memo,address:addr,chain};
     save(d); toggleForm('editForm'); showMsg('保存しました','ok'); renderWallets();
     if(addr!==old) fetchBalance(id);
+}
+
+function toggleLabelAddForm() {
+    const form = document.getElementById('labelAddForm');
+    const btn  = document.getElementById('labelAddBtn');
+    const open = form.style.display === 'none';
+    form.style.display = open ? 'block' : 'none';
+    btn.textContent = open ? '✕ 閉じる' : '+ 新規追加';
+    if (open) {
+        document.getElementById('newLabelAddr').value = '';
+        document.getElementById('newLabelName').value = '';
+        document.getElementById('newLabelContract').value = '';
+        document.getElementById('newLabelAddr').focus();
+    }
+}
+
+function addNewLabel() {
+    const addr     = document.getElementById('newLabelAddr').value.trim().toLowerCase();
+    const name     = document.getElementById('newLabelName').value.trim();
+    const contract = document.getElementById('newLabelContract').value.trim().toLowerCase();
+    if (!addr)  { showMsg('アドレスを入力してください','err'); return; }
+    if (!name)  { showMsg('ラベル名を入力してください','err'); return; }
+
+    const labels = loadLabels();
+    if (labels[addr] && !confirm(`「${labels[addr]}」は登録済みです。上書きしますか？`)) return;
+
+    labels[addr] = name;
+    // 中継コントラクトも登録
+    if (contract) labels[contract] = name + '（中継）';
+    saveLabels(labels);
+
+    showMsg('ラベルを登録しました','ok');
+    toggleLabelAddForm();
+    renderWallets();
+    renderTxTable();
 }
 
 function startEditLabel(addr, currentLbl) {

@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.20</span>
+    <span class="ver-badge" id="verBadge">v5.21</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -521,7 +521,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.20</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.21</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -732,7 +732,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.20';
+const APP_VER  = '5.21';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -1534,6 +1534,67 @@ function renderCurrencyTable() {
     }).join('');
 }
 
+// =====================================================================
+// TXアドレス自動取得（Zerion API の sent_to / received_from）
+// =====================================================================
+async function lookupTxAddr(safeId, role) {
+    const d = load();
+    const tx = d.transactions.find(t => String(t.id).replace('.','_') === safeId);
+    if (!tx) { showMsg('取引が見つかりません', 'err'); return; }
+    const hash = tx.hash;
+    const wallet = d.wallets.find(w => w.id === tx.walletId);
+    if (!hash) { showMsg('TXハッシュがありません', 'err'); return; }
+    const apiKey = getApiKey();
+    if (!apiKey) { showMsg('Zerion APIキーを設定してください', 'err'); return; }
+
+    const btn = document.querySelector(`[onclick="lookupTxAddr('${safeId}','${role}')"]`);
+    if (btn) { btn.textContent = '⏳'; btn.style.pointerEvents = 'none'; }
+
+    try {
+        const walletAddr = wallet?.address || tx.from || tx.to;
+        const path = `wallets/${walletAddr}/transactions/?filter[hash]=${hash}&currency=usd&page[size]=1`;
+        const j = await zerionFetch(path);
+        const attrs = j.data?.[0]?.attributes;
+        if (!attrs) {
+            showMsg('取引データが取得できませんでした', 'err');
+            if (btn) { btn.textContent = '🔍 取得'; btn.style.pointerEvents = ''; }
+            return;
+        }
+
+        const foundAddr = role === 'to'
+            ? (attrs.sent_to || attrs.transfers?.find(t=>t.direction==='out')?.recipient?.address)
+            : (attrs.received_from || attrs.transfers?.find(t=>t.direction==='in')?.sender?.address);
+
+        if (!foundAddr) {
+            showMsg(`アドレスはAPIで取得できませんでした（コントラクト操作等）`, 'err');
+            if (btn) { btn.textContent = '取得不可'; btn.style.background = '#fee2e2'; btn.style.color = '#b91c1c'; }
+            return;
+        }
+
+        // 登録名があれば表示
+        const walletMatch = resolveName(foundAddr, d.wallets);
+        const label = getLabel(foundAddr);
+        const displayAddr = foundAddr.slice(0,18)+'…';
+        const nameInfo = walletMatch ? `\n登録名: ${walletMatch}` : label ? `\nラベル: ${label}` : '\n（未登録アドレス）';
+        if (!confirm(`${role==='to'?'送金先':'送信元'}アドレスを取得しました。\n\n${displayAddr}${nameInfo}\n\nこの取引に設定しますか？`)) {
+            if (btn) { btn.textContent = '🔍 取得'; btn.style.pointerEvents = ''; }
+            return;
+        }
+
+        const idx = d.transactions.findIndex(t => String(t.id).replace('.','_') === safeId);
+        if (idx >= 0) {
+            d.transactions[idx][role === 'to' ? 'to' : 'from'] = foundAddr.toLowerCase();
+            save(d);
+            showMsg(`${role==='to'?'送金先':'送信元'}を設定しました`, 'ok');
+            renderTxTable();
+        }
+    } catch(e) {
+        console.error('lookupTxAddr:', e);
+        showMsg('API取得エラー: ' + e.message, 'err');
+        if (btn) { btn.textContent = '🔍 取得'; btn.style.pointerEvents = ''; }
+    }
+}
+
 // 通貨フォーマット（サマリー用）
 function fmtMoneySummary(usdVal, decimals=2) {
     if (_currency==='JPY') return '¥'+Math.round(usdVal*_fxRate).toLocaleString('ja-JP');
@@ -2002,7 +2063,15 @@ function addrLabelWithEdit(addr, wallets, chain, role, txId, displayName, source
     if (!addr && displayName) {
         return `<span class="addr-labeled" title="アドレス不明・手動設定名">${esc(displayName)}</span>${srcBadge}${editBtn}`;
     }
-    if (!addr) return `<span class="addr-unknown">—</span>${editBtn}`;
+    if (!addr) {
+        // Zerionソースかつアドレス空欄 → 🔍ボタンを表示
+        const lookupBtn = source === 'zerion' || source === 'bitcoin'
+            ? `<span onclick="lookupTxAddr('${safeId}','${role}')" title="APIでアドレスを検索して登録"
+                style="cursor:pointer;font-size:10px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;
+                border-radius:4px;padding:1px 6px;margin-left:3px;white-space:nowrap;">🔍 取得</span>`
+            : '';
+        return `<span class="addr-unknown">—</span>${lookupBtn}${editBtn}`;
+    }
     const n  =resolveName(addr.toLowerCase(), wallets);
     const lbl=getLabel(addr);
     const cl =chain||'unknown';

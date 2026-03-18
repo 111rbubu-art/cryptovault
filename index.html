@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.9</span>
+    <span class="ver-badge" id="verBadge">v5.10</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -357,22 +357,26 @@ tr:hover .addr-edit-btn{opacity:1;}
     <!-- テーブル -->
     <div class="table-wrap">
       <table>
-        <thead><tr>
-          <th>種類</th>
-          <th>日時</th>
-          <th>送信元</th>
-          <th>送信先</th>
-          <th class="td-right">売却通貨</th>
-          <th class="td-right">売却数量</th>
-          <th class="td-right">売却評価額(USD)</th>
-          <th class="td-right">取得通貨</th>
-          <th class="td-right">取得数量</th>
-          <th class="td-right">取得評価額(USD)</th>
-          <th class="td-right">手数料</th>
-          <th class="td-right">損益(USD)</th>
-          <th>チェーン</th>
-          <th>TXハッシュ</th>
-        </tr></thead>
+        <thead>
+          <tr>
+            <th rowspan="2" style="vertical-align:middle;">種類</th>
+            <th rowspan="2" style="vertical-align:middle;">日時</th>
+            <th rowspan="2" style="vertical-align:middle;">送信元</th>
+            <th rowspan="2" style="vertical-align:middle;">送信先</th>
+            <th colspan="2" class="td-right" style="background:#fff5f5;color:#b91c1c;border-bottom:2px solid #fca5a5;font-size:11px;padding:4px 8px;">売却</th>
+            <th colspan="2" class="td-right" style="background:#f0fdf4;color:#166534;border-bottom:2px solid #86efac;font-size:11px;padding:4px 8px;">取得</th>
+            <th rowspan="2" class="td-right" style="vertical-align:middle;">手数料</th>
+            <th rowspan="2" class="td-right" style="vertical-align:middle;" id="thPnl">損益</th>
+            <th rowspan="2" style="vertical-align:middle;">チェーン</th>
+            <th rowspan="2" style="vertical-align:middle;">TXハッシュ</th>
+          </tr>
+          <tr>
+            <th class="td-right" style="background:#fff5f5;font-size:11px;font-weight:500;padding:3px 8px;">通貨</th>
+            <th class="td-right" style="background:#fff5f5;font-size:11px;font-weight:500;padding:3px 8px;" id="thOutVal">数量 / 評価額</th>
+            <th class="td-right" style="background:#f0fdf4;font-size:11px;font-weight:500;padding:3px 8px;">通貨</th>
+            <th class="td-right" style="background:#f0fdf4;font-size:11px;font-weight:500;padding:3px 8px;" id="thInVal">数量 / 評価額</th>
+          </tr>
+        </thead>
         <tbody id="txBody"></tbody>
       </table>
     </div>
@@ -495,7 +499,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.9</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.10</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -706,7 +710,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.9';
+const APP_VER  = '5.10';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -733,8 +737,20 @@ function toggleCurrency() {
     _currency = _currency === 'JPY' ? 'USD' : 'JPY';
     localStorage.setItem('cv9_currency', _currency);
     document.getElementById('currencyLabel').textContent = _currency === 'JPY' ? '¥ JPY' : '$ USD';
+    updateTxHeaders();
     renderTxTable();
     renderSummary();
+}
+
+function updateTxHeaders() {
+    const cur = _currency === 'JPY' ? 'JPY' : 'USD';
+    const sym = _currency === 'JPY' ? '¥' : '$';
+    const el = (id) => document.getElementById(id);
+    if (el('thOutVal')) el('thOutVal').textContent = `数量 / 評価額(${cur})`;
+    if (el('thInVal'))  el('thInVal').textContent  = `数量 / 評価額(${cur})`;
+    if (el('thPnl'))    el('thPnl').textContent    = `損益(${cur})`;
+    // サマリーの通貨単位ヘッダーも更新
+    document.querySelectorAll('.th-currency').forEach(el => { el.textContent = cur; });
 }
 
 // USD値を現在の通貨でフォーマット（nullなら null返す）
@@ -1542,12 +1558,10 @@ function renderTxTable() {
             <td class="td-muted" style="font-size:11px;">${date}</td>
             <td>${fromCell}</td>
             <td>${toCell}</td>
-            <td class="td-right">${esc(tx.outCurrency||'—')}</td>
-            <td class="td-right td-mono">${outQStr}</td>
-            <td class="td-right" style="display:none;">${tx.outValue?(tx.outValue).toFixed(2):'—'}</td>
-            <td class="td-right">${esc(tx.inCurrency||'—')}</td>
-            <td class="td-right td-mono">${inQStr}</td>
-            <td class="td-right" style="display:none;">${tx.inValue?(tx.inValue).toFixed(2):'—'}</td>
+            <td class="td-right" style="background:#fffafa;">${esc(tx.outCurrency||'—')}</td>
+            <td class="td-right td-mono" style="background:#fffafa;">${outQStr}</td>
+            <td class="td-right" style="background:#f7fffa;">${esc(tx.inCurrency||'—')}</td>
+            <td class="td-right td-mono" style="background:#f7fffa;">${inQStr}</td>
             <td class="td-right td-mono">${fStr}</td>
             <td class="td-right" ${pS}>${pnlStr}</td>
             <td><span class="badge-chain chain-${chain}" style="font-size:9px;padding:1px 6px;">${esc(tx.chain||'—')}</span></td>
@@ -1768,6 +1782,7 @@ window.addEventListener('load', async ()=>{
     await fetchFxRate();
     // 通貨ラベル初期化
     document.getElementById('currencyLabel').textContent = _currency === 'JPY' ? '¥ JPY' : '$ USD';
+    updateTxHeaders();
     updateApiBadge();
     renderWallets();
     renderSummary();

@@ -1700,6 +1700,9 @@ function renderTxTable() {
         const pnlStr = totalPnl!==0?(totalPnl>=0?'+':'')+fmtMoneyStr(totalPnl):'—';
         const pnlStyle = totalPnl>0?'color:#0d9060;font-weight:500;':totalPnl<0?'color:#c0392b;font-weight:500;':'';
 
+        const expandIcon = collapsed ? '▶' : '▼';
+        const childRows = collapsed ? '' : sorted.map(tx=>renderTxRow(tx, true)).join('');
+
         return `<tr style="background:#dbeafe;border-left:4px solid #2563eb;" class="group-summary-row" data-gid="${gid}">
             <td style="padding:4px 6px;text-align:center;">
                 <input type="checkbox" class="tx-check-group" data-gid="${gid}" onchange="onGroupCheckChange('${gid}',this.checked)" style="cursor:pointer;" title="グループ全体を選択">

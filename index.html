@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.22</span>
+    <span class="ver-badge" id="verBadge">v5.23</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -521,7 +521,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.22</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.23</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -683,7 +683,7 @@ tr:hover .addr-edit-btn{opacity:1;}
           <option value="">選択してください</option>
         </select>
       </div>
-      <p style="font-size:11px;color:#9aa3b0;margin-top:4px;">選択したウォレットのアドレスをこの取引の送信元/送信先に設定します。</p>
+      <p style="font-size:11px;color:#9aa3b0;margin-top:4px;">登録済みウォレットまたはアドレスラベルから選択して、この取引の送信元/送信先に設定します。</p>
     </div>
 
     <!-- タブ3: ラベルのみ -->
@@ -732,7 +732,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.22';
+const APP_VER  = '5.23';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -896,6 +896,37 @@ function saveEdit() {
     d.wallets[idx]={...d.wallets[idx],name,group,memo,address:addr,chain};
     save(d); toggleForm('editForm'); showMsg('保存しました','ok'); renderWallets();
     if(addr!==old) fetchBalance(id);
+}
+
+function startEditLabel(addr, currentLbl) {
+    const key = addr.slice(2,10);
+    document.getElementById('label-text-'+key).style.display = 'none';
+    document.getElementById('label-input-'+key).style.display = 'inline-block';
+    document.getElementById('label-edit-btn-'+key).style.display = 'none';
+    document.getElementById('label-save-btn-'+key).style.display = 'inline-block';
+    document.getElementById('label-cancel-btn-'+key).style.display = 'inline-block';
+    const input = document.getElementById('label-input-'+key);
+    input.focus(); input.select();
+}
+function saveEditLabel(addr) {
+    const key = addr.slice(2,10);
+    const newLbl = document.getElementById('label-input-'+key).value.trim();
+    if (!newLbl) { showMsg('ラベル名を入力してください','err'); return; }
+    const labels = loadLabels();
+    labels[addr] = newLbl;
+    saveLabels(labels);
+    showMsg('ラベルを更新しました','ok');
+    renderWallets();
+    renderTxTable();
+}
+function cancelEditLabel(addr, original) {
+    const key = addr.slice(2,10);
+    document.getElementById('label-input-'+key).value = original;
+    document.getElementById('label-text-'+key).style.display = '';
+    document.getElementById('label-input-'+key).style.display = 'none';
+    document.getElementById('label-edit-btn-'+key).style.display = 'inline-block';
+    document.getElementById('label-save-btn-'+key).style.display = 'none';
+    document.getElementById('label-cancel-btn-'+key).style.display = 'none';
 }
 
 function deleteLabel(addr) {
@@ -1394,12 +1425,22 @@ function renderWallets() {
         html += `<table class="data-table" style="margin-top:0;margin-bottom:16px;">
             <thead><tr><th>アドレス</th><th>ラベル</th><th>紐付きウォレット</th><th>操作</th></tr></thead>
             <tbody>${labelEntries.map(([addr,lbl])=>{
-                const linked=d.wallets.find(w=>w.address===addr);
-                return `<tr>
-                    <td class="td-mono td-muted" style="font-size:11px;">${addr.slice(0,16)}…</td>
-                    <td style="font-weight:500;">${esc(lbl)}</td>
+                const linked=d.wallets.find(w=>w.address?.toLowerCase()===addr);
+                const safeAddr = addr.replace(/'/g,"\\'");
+                const safeLbl  = lbl.replace(/'/g,"\\'");
+                return `<tr id="label-row-${addr.slice(2,10)}">
+                    <td class="td-mono td-muted" style="font-size:11px;" title="${addr}">${addr.slice(0,16)}…</td>
+                    <td style="font-weight:500;">
+                        <span id="label-text-${addr.slice(2,10)}">${esc(lbl)}</span>
+                        <input id="label-input-${addr.slice(2,10)}" value="${esc(lbl)}" style="display:none;padding:3px 6px;border:1px solid #3b82f6;border-radius:4px;font-size:12px;width:140px;">
+                    </td>
                     <td>${linked?`<span style="font-size:11px;color:#3b82f6;">${esc(linked.group||linked.name)}</span>`:'<span style="color:#9aa3b0;font-size:11px;">なし</span>'}</td>
-                    <td><button class="btn btn-danger btn-sm" onclick="deleteLabel('${addr}')">削除</button></td>
+                    <td style="white-space:nowrap;">
+                        <button class="btn btn-outline btn-sm" id="label-edit-btn-${addr.slice(2,10)}" onclick="startEditLabel('${safeAddr}','${safeLbl}')">編集</button>
+                        <button class="btn btn-sm" id="label-save-btn-${addr.slice(2,10)}" style="display:none;background:#3b82f6;color:#fff;border:none;" onclick="saveEditLabel('${safeAddr}')">保存</button>
+                        <button class="btn btn-outline btn-sm" id="label-cancel-btn-${addr.slice(2,10)}" style="display:none;" onclick="cancelEditLabel('${safeAddr}','${safeLbl}')">取消</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteLabel('${safeAddr}')">削除</button>
+                    </td>
                 </tr>`;
             }).join('')}</tbody>
         </table>`;
@@ -1622,10 +1663,26 @@ function openTxAddrModal(txId, field, currentAddr, chain) {
     const cs = document.getElementById('txAddrNewChain');
     if(chain && chain!=='unknown') cs.value=chain;
 
-    // 登録済みウォレット一覧を更新
+    // 登録済みウォレット一覧 + アドレスラベルを更新
     const sw = document.getElementById('txAddrSelectWallet');
+    const labels = loadLabels();
+    const labelEntries = Object.entries(labels);
+
+    // ウォレット一覧
+    const walletOpts = d.wallets.map(w=>
+        `<option value="${esc(w.address)}">[ウォレット] ${esc(w.group||w.name)}${w.memo?' / '+esc(w.memo):''} (${esc(w.chain.toUpperCase())})</option>`
+    ).join('');
+
+    // アドレスラベル（ウォレット未登録のもの）
+    const labelOpts = labelEntries
+        .filter(([addr]) => !d.wallets.find(w=>w.address?.toLowerCase()===addr))
+        .map(([addr,lbl]) =>
+            `<option value="${esc(addr)}">[ラベル] ${esc(lbl)} — ${addr.slice(0,14)}…</option>`
+        ).join('');
+
     sw.innerHTML = '<option value="">選択してください</option>' +
-        d.wallets.map(w=>`<option value="${esc(w.address)}">${esc(w.name)} (${esc(w.chain.toUpperCase())})</option>`).join('');
+        (walletOpts ? `<optgroup label="登録済みウォレット">${walletOpts}</optgroup>` : '') +
+        (labelOpts  ? `<optgroup label="アドレスラベル">${labelOpts}</optgroup>` : '');
 
     // ラベル欄に既存ラベルまたはdisplayNameをセット
     const existingDN = field==='from' ? (d.transactions.find(t=>String(t.id).replace('.','_')===String(txId))?.fromDisplayName||'')

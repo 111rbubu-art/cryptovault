@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.30</span>
+    <span class="ver-badge" id="verBadge">v5.31</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -549,7 +549,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.30</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.31</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -770,7 +770,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.30';
+const APP_VER  = '5.31';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -2015,18 +2015,29 @@ function filteredTx() {
     const ft=document.getElementById('fType')?.value||'';
     const fy=document.getElementById('fYear')?.value||'';
 
-    // ウォレット名でフィルター：グループ名が一致するウォレットのIDを全部集める
-    let walletIds = null;
+    // ウォレット名フィルター：グループ名に一致するウォレットのID・アドレスを全部集める
+    let walletIds  = null;
+    let walletAddrs = null;
     if (fw) {
-        walletIds = new Set(
-            d.wallets
-                .filter(w=>(w.group||w.name)===fw)
-                .map(w=>w.id)
-        );
+        const matched = d.wallets.filter(w=>(w.group||w.name)===fw);
+        walletIds   = new Set(matched.map(w=>w.id));
+        walletAddrs = new Set(matched.map(w=>w.address?.toLowerCase()).filter(Boolean));
     }
 
     return d.transactions.filter(tx=>{
-        if(walletIds && !walletIds.has(tx.walletId)) return false;
+        if (walletIds) {
+            const fromAddr = tx.from?.toLowerCase();
+            const toAddr   = tx.to?.toLowerCase();
+            const realFrom = tx.fromRealAddr?.toLowerCase();
+            const realTo   = tx.toRealAddr?.toLowerCase();
+            const involved =
+                walletIds.has(tx.walletId) ||          // このウォレットの取引
+                walletAddrs.has(fromAddr)  ||           // 送信元がこのウォレット
+                walletAddrs.has(toAddr)    ||           // 送信先がこのウォレット
+                walletAddrs.has(realFrom)  ||           // 実際の送信元
+                walletAddrs.has(realTo);                // 実際の送信先
+            if (!involved) return false;
+        }
         if(fc && tx.chain!==fc) return false;
         if(ft && tx.type!==ft) return false;
         if(fy && String(new Date(tx.timestamp).getFullYear())!==fy) return false;

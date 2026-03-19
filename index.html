@@ -251,7 +251,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style="margin-left:4px;"><path d="M2 4l3-3 3 3M2 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </div>
     <span class="api-badge ng" id="apiBadge" onclick="openModal('settingsModal')">APIキー未設定</span>
-    <span class="ver-badge" id="verBadge">v5.28</span>
+    <span class="ver-badge" id="verBadge">v5.29</span>
     <button class="btn btn-ghost" onclick="openModal('settingsModal')">
       <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="2" stroke="#1a56db" stroke-width="1.4"/><path d="M7 1v2M7 11v2M1 7h2M11 7h2M2.93 2.93l1.41 1.41M9.66 9.66l1.41 1.41M2.93 11.07l1.41-1.41M9.66 4.34l1.41-1.41" stroke="#1a56db" stroke-width="1.3" stroke-linecap="round"/></svg>
       設定
@@ -545,7 +545,7 @@ tr:hover .addr-edit-btn{opacity:1;}
       </div>
       <dl>
         <div class="settings-row"><dt>アプリ名</dt><dd>CryptoVault</dd></div>
-        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.28</dd></div>
+        <div class="settings-row"><dt>バージョン</dt><dd id="sv" style="color:#1a56db;">v5.29</dd></div>
         <div class="settings-row"><dt>ビルド日</dt><dd id="sb">2026-03-16</dd></div>
         <div class="settings-row"><dt>データキー</dt><dd><code style="background:#f0f2f5;padding:1px 5px;border-radius:3px;font-size:11px;">cv9</code></dd></div>
         <div class="settings-row"><dt>ウォレット数</dt><dd id="sWC">—</dd></div>
@@ -766,7 +766,7 @@ tr:hover .addr-edit-btn{opacity:1;}
 // =====================================================================
 // 定数・ストレージ
 // =====================================================================
-const APP_VER  = '5.28';
+const APP_VER  = '5.29';
 const APP_DATE = '2026-03-17';
 const SK  = 'cv9';
 const SKS = 'cv9_settings';
@@ -2073,21 +2073,26 @@ function renderTxTable() {
         const rowStyle=inGroup?'background:#f0f6ff;':'';
         const indent=inGroup?'padding-left:20px;border-left:3px solid #93c5fd;':'';
 
-        // 中継コントラクトサブ行：toまたはfromのラベルが（中継）の場合
+        // 中継コントラクト判定
         const labels = loadLabels();
         const toLbl   = getLabel(tx.to);
         const fromLbl = getLabel(tx.from);
         const toIsContract   = toLbl   && toLbl.endsWith('（中継）');
         const fromIsContract = fromLbl && fromLbl.endsWith('（中継）');
 
-        let subRow = '';
         if (toIsContract || fromIsContract) {
+            // ── 中継コントラクト取引：折りたたみサマリー行 ──
+            if (!window._contractCollapsed) window._contractCollapsed = {};
+            const collapsed = window._contractCollapsed[safeId] !== false; // デフォルト折りたたみ
+
             const roleForSub = toIsContract ? 'to' : 'from';
             const realField  = roleForSub === 'to' ? 'toRealAddr' : 'fromRealAddr';
             const savedReal  = tx[realField];
             const savedName  = savedReal ? (resolveName(savedReal, d.wallets) || getLabel(savedReal) || savedReal.slice(0,14)+'…') : null;
+            const contractLbl = toIsContract ? toLbl : fromLbl;
+            const contractBase = contractLbl.replace('（中継）','').trim();
 
-            // 候補：ラベル（中継以外）＋ウォレット
+            // 候補リスト
             const candidates = [];
             Object.entries(labels)
                 .filter(([a,l]) => !l.endsWith('（中継）'))
@@ -2096,37 +2101,85 @@ function renderTxTable() {
                 if (!candidates.find(c=>c.addr===w.address?.toLowerCase()))
                     candidates.push({addr:w.address?.toLowerCase(), label:w.group||w.name});
             });
-
             const opts = candidates.map(c=>
                 `<option value="${esc(c.addr)}" ${savedReal===c.addr?'selected':''}>${esc(c.label)} — ${c.addr.slice(0,12)}…</option>`
             ).join('');
 
-            const contractLbl = toIsContract ? toLbl : fromLbl;
-            const contractBase = contractLbl.replace('（中継）','').trim();
+            const expandIcon = collapsed ? '▶' : '▼';
 
-            subRow = `<tr style="${rowStyle}border-top:none;" class="contract-sub-row">
-                <td></td>
-                <td colspan="3" style="padding:3px 8px 6px ${inGroup?'36px':'24px'};font-size:11px;color:#92400e;background:#fffbeb;border-bottom:1px solid #fde68a;">
-                    <span style="font-size:10px;background:#fef3c7;padding:1px 5px;border-radius:3px;margin-right:6px;">経由</span>
-                    <span style="color:#78350f;">${esc(contractBase)}</span>
-                    <span style="color:#9aa3b0;margin:0 6px;">→</span>
+            // サマリー行：1行にまとめ
+            const summaryRow = `<tr style="background:#fffbeb;border-left:4px solid #d97706;" class="contract-summary-row" data-txid="${safeId}">
+                <td style="padding:4px 6px;text-align:center;">
+                    <input type="checkbox" class="tx-check" data-id="${safeId}" onchange="onTxCheckChange()" style="cursor:pointer;">
+                </td>
+                <td>
+                    <button onclick="toggleContractCollapse('${safeId}')" class="btn btn-sm"
+                        style="background:none;border:1px solid #fcd34d;color:#92400e;padding:2px 7px;font-size:12px;font-weight:700;cursor:pointer;margin-right:3px;"
+                        title="${collapsed?'展開':'折りたたむ'}">${expandIcon}</button>
+                    <span style="font-size:9px;background:#d97706;color:#fff;padding:1px 5px;border-radius:3px;">経由</span>
+                </td>
+                <td style="padding:5px 8px;line-height:1.3;">${dateCell}</td>
+                <td style="font-size:12px;">${fromCell}</td>
+                <td style="font-size:12px;color:#92400e;">
+                    <span style="font-weight:600;">${esc(contractBase)}</span>
+                    <span style="color:#9aa3b0;margin:0 4px;">→</span>
                     ${savedName
-                        ? `<span style="font-weight:600;color:#065f46;">${esc(savedName)}</span>
+                        ? `<span style="font-weight:600;color:#065f46;">${esc(savedName)}</span>`
+                        : `<span style="color:#9aa3b0;font-style:italic;font-size:11px;">受取人未設定</span>`}
+                </td>
+                <td class="td-right" style="background:#fffbeb;">${esc(tx.outCurrency||'—')}</td>
+                <td class="td-right td-mono" style="background:#fffbeb;">${outQStr}</td>
+                <td class="td-right" style="background:#fffbeb;">—</td>
+                <td class="td-right td-mono" style="background:#fffbeb;">—</td>
+                <td class="td-right td-mono">${fStr}</td>
+                <td class="td-right" ${pS}>${pnlStr}</td>
+                <td><span class="badge-chain chain-${chain}" style="font-size:9px;padding:1px 6px;">${esc(tx.chain||'—')}</span></td>
+                <td>${hashCell}</td>
+            </tr>`;
+
+            if (collapsed) return summaryRow;
+
+            // 展開時：取引詳細行 + 受取人設定サブ行
+            const detailRow = `<tr style="background:#fffdf0;" data-txid="${safeId}">
+                <td style="padding:4px 6px;text-align:center;"></td>
+                <td style="padding-left:20px;border-left:3px solid #fcd34d;"><span class="badge badge-${tx.type}">${tmap[tx.type]||tx.type}</span></td>
+                <td style="padding:5px 8px;line-height:1.3;">${dateCell}</td>
+                <td>${fromCell}</td>
+                <td>${toCell}</td>
+                <td class="td-right" style="background:#fffbeb;">${esc(tx.outCurrency||'—')}</td>
+                <td class="td-right td-mono" style="background:#fffbeb;">${outQStr}</td>
+                <td class="td-right" style="background:#f7fffa;">—</td>
+                <td class="td-right td-mono" style="background:#f7fffa;">—</td>
+                <td class="td-right td-mono">${fStr}</td>
+                <td class="td-right" ${pS}>${pnlStr}</td>
+                <td><span class="badge-chain chain-${chain}" style="font-size:9px;padding:1px 6px;">${esc(tx.chain||'—')}</span></td>
+                <td>${hashCell}</td>
+            </tr>`;
+
+            const realRow = `<tr style="background:#fffdf0;" class="contract-sub-row">
+                <td></td>
+                <td colspan="3" style="padding:4px 8px 8px 28px;font-size:11px;color:#92400e;border-left:3px solid #fcd34d;">
+                    <span style="color:#78350f;font-weight:600;">実際の受取人：</span>
+                    ${savedName
+                        ? `<span style="font-weight:600;color:#065f46;margin-right:6px;">${esc(savedName)}</span>
                            <button onclick="clearRealAddr('${safeId}','${roleForSub}')"
-                             style="margin-left:6px;font-size:9px;color:#9aa3b0;background:none;border:none;cursor:pointer;">✕</button>`
-                        : `<span style="color:#9aa3b0;font-style:italic;">実際の受取人 未設定</span>`
+                             style="font-size:10px;color:#9aa3b0;background:none;border:1px solid #e5e7eb;border-radius:3px;padding:1px 6px;cursor:pointer;">クリア</button>`
+                        : `<span style="color:#9aa3b0;font-style:italic;margin-right:6px;">未設定</span>`
                     }
-                    <select id="real-sel-${safeId}" style="margin-left:10px;font-size:11px;padding:2px 4px;border:1px solid #fcd34d;border-radius:4px;max-width:180px;">
+                    <select id="real-sel-${safeId}" style="margin-left:8px;font-size:11px;padding:2px 4px;border:1px solid #fcd34d;border-radius:4px;max-width:200px;">
                         <option value="">選択してください</option>
                         ${opts}
                     </select>
                     <button onclick="setRealAddr('${safeId}','${roleForSub}')"
-                        style="margin-left:5px;font-size:11px;background:#d97706;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;">設定</button>
+                        style="margin-left:6px;font-size:11px;background:#d97706;color:#fff;border:none;border-radius:4px;padding:3px 10px;cursor:pointer;">設定</button>
                 </td>
-                <td colspan="9" style="background:#fffbeb;border-bottom:1px solid #fde68a;"></td>
+                <td colspan="9" style="border-bottom:1px solid #fde68a;"></td>
             </tr>`;
+
+            return summaryRow + detailRow + realRow;
         }
 
+        // ── 通常の取引行 ──
         return `<tr style="${rowStyle}" data-txid="${safeId}">
             <td style="padding:4px 6px;text-align:center;">
                 <input type="checkbox" class="tx-check" data-id="${safeId}" onchange="onTxCheckChange()" style="cursor:pointer;">
@@ -2143,7 +2196,7 @@ function renderTxTable() {
             <td class="td-right" ${pS}>${pnlStr}</td>
             <td><span class="badge-chain chain-${chain}" style="font-size:9px;padding:1px 6px;">${esc(tx.chain||'—')}</span></td>
             <td>${hashCell}</td>
-        </tr>${subRow}`;
+        </tr>`;
     }
 
     // ④ グループ代表行（折りたたみ行）のレンダリング
@@ -2247,6 +2300,13 @@ function renderTxTable() {
 // =====================================================================
 // 中継コントラクト → 実際の受取人 設定
 // =====================================================================
+function toggleContractCollapse(safeId) {
+    if (!window._contractCollapsed) window._contractCollapsed = {};
+    const current = window._contractCollapsed[safeId] !== false; // デフォルトtrue（折りたたみ）
+    window._contractCollapsed[safeId] = !current;
+    renderTxTable();
+}
+
 function setRealAddr(safeId, role) {
     const sel = document.getElementById('real-sel-' + safeId);
     if (!sel || !sel.value) { showMsg('受取人を選択してください', 'err'); return; }

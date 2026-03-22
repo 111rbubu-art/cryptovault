@@ -2268,22 +2268,27 @@ function renderTxTable() {
         const sendTx  = gTxs.find(t=>t.type==='send')   || gTxs.find(t=>t.outCurrency);
         const recvTx  = gTxs.find(t=>t.type==='receive') || gTxs.find(t=>t.inCurrency);
 
-        // ブリッジ重複除去：同一通貨・近似金額の受取が複数ある場合は最大金額の1件のみ使用
+        // ブリッジ重複検出＆除去
+        // 「有意な受取」＝ inQuantity が全受取の中で最大金額の10%以上あるもの
         function dedupRecvTxs(txList) {
-            const recvs = txList.filter(t=>t.type==='receive' && t.inCurrency && t.inQuantity>0);
-            if(recvs.length <= 1) return recvs;
-            // 通貨ごとにグループ化
+            const recvs = txList.filter(t=>t.type==='receive' && t.inCurrency && (t.inQuantity||0)>0);
+            if(recvs.length <= 1) return { list: recvs, isBridge: false };
+            // 通貨ごとにグループ化（微小なETH手数料受取は除外）
+            const maxQtyAll = Math.max(...recvs.map(t=>t.inQuantity||0));
+            const significant = recvs.filter(t=>(t.inQuantity||0) >= maxQtyAll * 0.1);
             const byCur = {};
-            recvs.forEach(t=>{ const k=t.inCurrency; (byCur[k]=byCur[k]||[]).push(t); });
+            significant.forEach(t=>{ const k=t.inCurrency; (byCur[k]=byCur[k]||[]).push(t); });
+            let isBridge = false;
             const result = [];
             Object.values(byCur).forEach(list=>{
                 if(list.length === 1){ result.push(list[0]); return; }
-                // 同一通貨で最大値と他の値が95%以上一致 → ブリッジ重複とみなし最大1件のみ
-                const maxQty = Math.max(...list.map(t=>t.inQuantity||0));
-                const similar = list.filter(t=>(t.inQuantity||0) >= maxQty * 0.95);
+                // 同一通貨で95%以上一致する受取が複数 → ブリッジ重複
+                const maxQ = Math.max(...list.map(t=>t.inQuantity||0));
+                const similar = list.filter(t=>(t.inQuantity||0) >= maxQ * 0.95);
                 if(similar.length > 1){
-                    // 最大金額の1件だけ残す（異なるチェーンなら ethereum優先）
-                    const best = similar.sort((a,b)=>{
+                    isBridge = true;
+                    // ethereumチェーン優先で1件だけ残す
+                    const best = similar.slice().sort((a,b)=>{
                         if(a.chain==='ethereum' && b.chain!=='ethereum') return -1;
                         if(b.chain==='ethereum' && a.chain!=='ethereum') return  1;
                         return (b.inQuantity||0)-(a.inQuantity||0);
@@ -2293,20 +2298,29 @@ function renderTxTable() {
                     result.push(...list);
                 }
             });
-            return result;
+            return { list: result, isBridge };
         }
-        const dedupedRecvs = dedupRecvTxs(gTxs);
+        const { list: dedupedRecvs, isBridge } = dedupRecvTxs(gTxs);
 
         // 売却欄：sendTxのout、なければ全txのoutを合算
         const outCur  = sendTx?.outCurrency || gTxs.map(t=>t.outCurrency).filter(Boolean)[0] || '—';
         const outQty  = sendTx?.outQuantity || gTxs.reduce((s,t)=>s+(t.outQuantity||0),0);
         const outVal  = sendTx?.outValue    || gTxs.reduce((s,t)=>s+(t.outValue||0),0);
 
-        // 取得欄：重複除去済み受取を使用
-        const bestRecv = dedupedRecvs[0] || recvTx;
-        const inCur   = bestRecv?.inCurrency  || gTxs.map(t=>t.inCurrency).filter(Boolean)[0]  || '—';
-        const inQty   = bestRecv ? dedupedRecvs.reduce((s,t)=>s+(t.inQuantity||0),0) : gTxs.reduce((s,t)=>s+(t.inQuantity||0),0);
-        const inVal   = bestRecv ? dedupedRecvs.reduce((s,t)=>s+(t.inValue||0),0)    : gTxs.reduce((s,t)=>s+(t.inValue||0),0);
+        // 取得欄：重複除去済み・有意な受取のみ集計
+        // 通貨が混在する場合は最大金額の通貨を代表に使用
+        const bestRecv = dedupedRecvs.length > 0
+            ? dedupedRecvs.slice().sort((a,b)=>(b.inQuantity||0)-(a.inQuantity||0))[0]
+            : recvTx;
+        const mainCur = bestRecv?.inCurrency || '—';
+        const sameCurRecvs = dedupedRecvs.filter(t=>t.inCurrency===mainCur);
+        const inCur   = mainCur;
+        const inQty   = sameCurRecvs.length > 0
+            ? sameCurRecvs.reduce((s,t)=>s+(t.inQuantity||0),0)
+            : (bestRecv?.inQuantity||0);
+        const inVal   = sameCurRecvs.length > 0
+            ? sameCurRecvs.reduce((s,t)=>s+(t.inValue||0),0)
+            : (bestRecv?.inValue||0);
 
         // 手数料合計
         const totalFee = gTxs.reduce((s,t)=>s+(t.feeValue||0),0);
@@ -2356,6 +2370,7 @@ function renderTxTable() {
                     style="background:none;border:1px solid #93c5fd;color:#1e40af;padding:2px 7px;font-size:12px;font-weight:700;cursor:pointer;margin-right:3px;"
                     title="${collapsed?'展開':'折りたたむ'}">${expandIcon}</button>
                 <span style="font-size:9px;background:#2563eb;color:#fff;padding:1px 5px;border-radius:3px;">🔗${gTxs.length}件</span>
+                ${isBridge?'<span style="font-size:9px;background:#7c3aed;color:#fff;padding:1px 5px;border-radius:3px;margin-left:3px;" title="ブリッジ取引（チェーン間移動）が含まれます">🌉ブリッジ</span>':''}
             </td>
             <td style="padding:5px 8px;line-height:1.3;">${latestDate}</td>
             <td style="color:#1e40af;font-size:12px;">${esc(fromName)}</td>
